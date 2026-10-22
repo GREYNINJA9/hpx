@@ -10,6 +10,7 @@
 #include <hpx/modules/format.hpp>
 #include <hpx/modules/futures.hpp>
 #include <hpx/modules/lock_registration.hpp>
+#include <hpx/modules/runtime_local.hpp>
 #include <hpx/modules/thread_support.hpp>
 #include <hpx/modules/type_support.hpp>
 
@@ -1403,9 +1404,19 @@ namespace hpx::supervision::server {
 
         return hpx::detail::try_catch_exception_ptr(
             [&]() {
+                // Once this locality is shutting down (e.g. tidy() run from
+                // post_main()), a remote agent's locality may be gone already
+                // and its reply never arrive. Drop the agent instead of
+                // blocking the runtime's shutdown on it.
+                std::uint32_t const agent_locality =
+                    naming::get_locality_id_from_gid(agent.get_gid());
+                bool const unreachable =
+                    parcelset::locality_was_disconnected(agent_locality) ||
+                    (agent_locality != agas::get_locality_id() &&
+                        hpx::is_stopped_or_shutting_down());
+
                 bool erase_agent = true;
-                if (!parcelset::locality_was_disconnected(
-                        naming::get_locality_id_from_gid(agent.get_gid())))
+                if (!unreachable)
                 {
                     using action_type =
                         activity_agent_component::invoke_if_active_action;
