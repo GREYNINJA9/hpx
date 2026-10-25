@@ -1404,16 +1404,18 @@ namespace hpx::supervision::server {
 
         return hpx::detail::try_catch_exception_ptr(
             [&]() {
-                // Once this locality is shutting down (e.g. tidy() run from
-                // post_main()), a remote agent's locality may be gone already
-                // and its reply never arrive. Drop the agent instead of
-                // blocking the runtime's shutdown on it.
+                // Once tidy() has started (it only runs during teardown, from
+                // post_main()) or the runtime is shutting down, a remote
+                // agent's locality may be gone already and its reply never
+                // arrive. Drop the agent instead of blocking the runtime's
+                // shutdown on it.
                 std::uint32_t const agent_locality =
                     naming::get_locality_id_from_gid(agent.get_gid());
                 bool const unreachable =
                     parcelset::locality_was_disconnected(agent_locality) ||
                     (agent_locality != agas::get_locality_id() &&
-                        hpx::is_stopped_or_shutting_down());
+                        (tearing_down_.load(std::memory_order_acquire) ||
+                            hpx::is_stopped_or_shutting_down()));
 
                 bool erase_agent = true;
                 if (!unreachable)
@@ -1758,6 +1760,8 @@ namespace hpx::supervision::server {
     // this is a no-op.
     void supervision_manager::tidy()
     {
+        tearing_down_.store(true, std::memory_order_release);
+
         std::vector<hpx::id_type> targets;
 
         {

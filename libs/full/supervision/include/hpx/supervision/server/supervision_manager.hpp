@@ -20,6 +20,7 @@
 
 #include <hpx/supervision/supervision_api.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -507,6 +508,9 @@ namespace hpx::supervision::server {
         hpx::spinlock sweep_timer_mtx_;
 
         mutable std::string instance_name_;
+
+        // Set once tidy() starts; see fire_activity_event().
+        std::atomic<bool> tearing_down_{false};
 
         // registered events: targets -> states
         std::map<hpx::id_type, lifecycle_state> states_;
