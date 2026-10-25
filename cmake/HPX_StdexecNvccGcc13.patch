@@ -3,9 +3,9 @@ Additional workarounds for stdexec with nvcc 12.8 and a GCC 13 host compiler.
 The original nvcc workarounds allow parsing HPX's execution headers, but sender
 instantiations still fail in nvcc's generated host code. This incremental patch
 addresses callable non-type template parameters, unintended cv/ref qualifiers,
-virtual diagnostic types, GCC copy elision, and references to constexpr global
-function objects from host/device functions. A dependent sync_wait alias is
-spelled through a helper to preserve its result type in generated host code.
+GCC copy elision, and references to constexpr global function objects from
+host/device functions. A dependent sync_wait alias is spelled through a helper
+to preserve its result type in generated host code.
 
 Use STDEXEC_DEMANGLE_SENDER_NAMES consistently in HPX and its consumers; it
 selects a different sender representation. HPX's Stdexec interface target
@@ -48,12 +48,12 @@ Per-header rationale and diagnostics (with the representation macro enabled):
 - __sync_wait.hpp: the dependent value_type alias produces generated host
   errors including "_Error was not declared in this scope". The helper keeps
   that type lookup dependent.
-- __config.hpp: enable the existing GCC copy-elision workaround for nvcc's
-  GCC host compiler too; see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98995.
-- __diagnostics.hpp: retain the nonvirtual diagnostic fallback for nvcc's
-  constexpr virtual type handling. The config and diagnostics hunks were
-  not independently triggered by the bounded just/then/variant regression;
-  retest the wider HPX/Kokkos consumers before removing them.
+- __config.hpp: STDEXEC_GCC() is false under nvcc although GCC compiles the
+  host code, so the existing GCC copy-elision workaround is not enabled there;
+  enable it for nvcc with a GCC host compiler too. See
+  https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98995. This hunk was not
+  independently triggered by the bounded just/then/variant regression; retest
+  the wider HPX/Kokkos consumers before removing it.
 
 Tracking: https://github.com/TheHPXProject/hpx/pull/7711. No separate stdexec
 issue is recorded for these additional failures. When updating the pin,
@@ -96,17 +96,6 @@ file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
  // BUG (gcc#98995): copy elision fails when initializing a [[no_unique_address]] field
  // from a function returning an object of class type by value.
  // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=98995
---- a/include/stdexec/__detail/__diagnostics.hpp
-+++ b/include/stdexec/__detail/__diagnostics.hpp
-@@ -182,7 +182,7 @@
-   // constexpr stdlib exception types, https://wg21.link/p3378
-   using __exception = ::std::exception;
- 
--#  elif __cpp_constexpr >= 201907L && !STDEXEC_MSVC() && !STDEXEC_NVHPC()
-+#  elif __cpp_constexpr >= 201907L && !STDEXEC_MSVC() && !STDEXEC_NVHPC() && !STDEXEC_NVCC()
- 
-   // constexpr virtual functions
-   struct __exception
 --- a/include/stdexec/__detail/__just.hpp
 +++ b/include/stdexec/__detail/__just.hpp
 @@ -171,7 +171,11 @@

@@ -58,24 +58,24 @@ if(HPX_WITH_FETCH_STDEXEC)
       "-DHPX_STDEXEC_SPIN_LOOP_PAUSE_FILE=<SOURCE_DIR>/include/stdexec/__detail/__spin_loop_pause.hpp"
       -P ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecSpinLoopPause.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
-      "-DHPX_STDEXEC_NVCC_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecNvccWorkarounds.patch"
-      "-DHPX_STDEXEC_NVCC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}"
-      -P ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
+      "-DHPX_STDEXEC_PATCH_FILE=${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecNvccWorkarounds.patch"
+      "-DHPX_STDEXEC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}" -P
+      ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
-      "-DHPX_STDEXEC_NVCC_PATCH_FILE=${_hpx_stdexec_inline_nvcc_patch}"
-      "-DHPX_STDEXEC_NVCC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}"
-      -P ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
+      "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_inline_nvcc_patch}"
+      "-DHPX_STDEXEC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}" -P
+      ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
-      "-DHPX_STDEXEC_NVCC_PATCH_FILE=${_hpx_stdexec_async_scope_nvcc_patch}"
-      "-DHPX_STDEXEC_NVCC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}"
-      -P ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
+      "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_async_scope_nvcc_patch}"
+      "-DHPX_STDEXEC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}" -P
+      ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
-      "-DHPX_STDEXEC_NVCC_PATCH_FILE=${_hpx_stdexec_gcc13_nvcc_patch}"
-      "-DHPX_STDEXEC_NVCC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}"
-      -P ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
+      "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_gcc13_nvcc_patch}"
+      "-DHPX_STDEXEC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}" -P
+      ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
-      "-DHPX_STDEXEC_NVCC_PATCH_FILE=${_hpx_stdexec_sycl_atomic_patch}"
-      "-DHPX_STDEXEC_NVCC_PATCH_REQUIRED=${HPX_WITH_SYCL}" -P
+      "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_sycl_atomic_patch}"
+      "-DHPX_STDEXEC_PATCH_REQUIRED=${HPX_WITH_SYCL}" -P
       ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake
   )
 
