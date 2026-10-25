@@ -486,6 +486,12 @@ namespace hpx::threads::policies {
         return false;
     }
 
+    void scheduler_base::abandon_scheduling_loop() noexcept
+    {
+        // release: as in leave_scheduling_loop
+        workers_in_loop_.fetch_sub(1, std::memory_order_release);
+    }
+
     void scheduler_base::increment_background_thread_count() noexcept
     {
         ++background_thread_count_;

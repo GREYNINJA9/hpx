@@ -261,8 +261,12 @@ namespace hpx::threads::policies {
         // workers can still schedule work on them. The last worker to leave
         // checks all queues: leave_scheduling_loop returns false if work is
         // left, and the worker has to take it over.
+        // abandon_scheduling_loop is for a worker that exits the loop without
+        // leaving it (on an error): it is no longer counted and checks
+        // nothing.
         void enter_scheduling_loop() noexcept;
         [[nodiscard]] bool leave_scheduling_loop();
+        void abandon_scheduling_loop() noexcept;
 
         // Enumerate all matching threads
         virtual bool enumerate_threads(

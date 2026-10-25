@@ -586,6 +586,21 @@ namespace hpx::threads::policies {
         }
 
         // Return the next thread to be executed, return false if none available
+        //
+        // Note: this scheduler ignores the running and enable_stealing
+        // arguments (here and in wait_or_add_new) and steals as the scheduler
+        // mode says, also while the pool is stopping. That is what lets it
+        // shut down cleanly when work is posted to the queue of a worker that
+        // has already left its scheduling loop: the remaining workers keep
+        // stealing and run it. The other schedulers stop stealing once
+        // running is false and rely on the last worker to leave taking the
+        // work over (see scheduling_loop and leave_scheduling_loop). If this
+        // scheduler starts to honor running or enable_stealing, it has to
+        // handle that shutdown case differently: the last worker taking over
+        // calls it with running and enable_stealing set to true, and it has to
+        // reach the work on the queues of workers that have left then (see
+        // local_workrequesting_scheduler, which has to take that work
+        // directly). The test shutdown_left_work checks this case.
         bool get_next_thread(std::size_t thread_num, bool running,
             threads::thread_id_ref_type& thrd, bool enable_stealing)
         {

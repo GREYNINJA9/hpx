@@ -105,9 +105,19 @@ namespace hpx::threads::detail {
         bool take_over = false;
         scheduler.SchedulingPolicy::enter_scheduling_loop();
 
+        // a worker that exits the loop in any other way (terminating, an
+        // exception) is no longer counted either, so that the last worker
+        // still checks for work left
+        bool left = false;
+        auto abandon = hpx::experimental::scope_exit([&] {
+            if (!left)
+                scheduler.SchedulingPolicy::abandon_scheduling_loop();
+        });
+
         auto const leave = [&]() {
             if (scheduler.SchedulingPolicy::leave_scheduling_loop())
             {
+                left = true;
                 this_state.store(hpx::state::stopped);
                 return true;
             }
@@ -163,17 +173,20 @@ namespace hpx::threads::detail {
                     hpx::state::pre_sleep;
 
             // extract the stealing mode once per loop iteration (except during
-            // shutdown)
-            bool enable_stealing = !may_exit &&
-                scheduler.has_scheduler_mode(
-                    policies::scheduler_mode::enable_stealing, num_thread);
+            // shutdown). A worker that took over has to steal: the work left
+            // is on the queues of workers that have left.
+            bool enable_stealing = take_over ||
+                (!may_exit &&
+                    scheduler.has_scheduler_mode(
+                        policies::scheduler_mode::enable_stealing, num_thread));
 
             // stealing staged threads is enabled if:
             // - fast idle mode is on: same as normal stealing
             // - fast idle mode off: only after normal stealing has failed for
             //                       a while (see steal_staged_threshold)
+            // - right away for a worker that took over
             bool enable_stealing_staged = enable_stealing;
-            if (enable_stealing_staged &&
+            if (!take_over && enable_stealing_staged &&
                 !scheduler.has_scheduler_mode(
                     policies::scheduler_mode::fast_idle_mode, num_thread))
             {

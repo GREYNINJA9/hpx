@@ -1706,6 +1706,48 @@ namespace hpx::threads::policies {
             }
         }
 
+        // Move the work left on the queues of workers that have left their
+        // scheduling loop to the queues of this worker, see wait_or_add_new.
+        // This returns true if any work was moved.
+        bool take_from_stopped_workers(scheduler_data& d, std::size_t& added)
+        {
+            for (std::size_t i = 0; i != num_queues_; ++i)
+            {
+                if (i == d.num_thread_ ||
+                    this->get_state(i).load(std::memory_order_relaxed) !=
+                        hpx::state::stopped)
+                {
+                    continue;
+                }
+
+                auto& victim = data_[i].data_;
+
+                // pending threads, without applying the stealing minimum
+                thread_id_ref_type thrd;
+                if (i < num_high_priority_queues_)
+                {
+                    auto* q = d.num_thread_ < num_high_priority_queues_ ?
+                        d.high_priority_queue_ :
+                        d.queue_;
+                    while (victim.high_priority_queue_->get_next_thread(
+                        thrd, false, true))
+                    {
+                        q->schedule_thread(HPX_MOVE(thrd), true);
+                        ++added;
+                    }
+                }
+                while (victim.queue_->get_next_thread(thrd, false, true))
+                {
+                    d.queue_->schedule_thread(HPX_MOVE(thrd), true);
+                    ++added;
+                }
+
+                // staged threads (running == false skips the minimum)
+                d.queue_->wait_or_add_new(false, added, victim.queue_, true);
+            }
+            return added != 0;
+        }
+
         // Try receiving tasks that are sent by another core as a response to
         // one of our steal requests. This returns true if new tasks were
         // received.
@@ -1832,6 +1874,18 @@ namespace hpx::threads::policies {
 
             // check if no stealing is possible
             if (num_queues_ == 1)
+            {
+                return false;
+            }
+
+            // A worker that has left its scheduling loop doesn't answer steal
+            // requests anymore. The last worker to leave during shutdown runs
+            // as if the pool was running (see scheduling_loop) and takes the
+            // work left on the queues of such workers directly.
+            if (allow_stealing &&
+                this->get_state(num_thread).load(std::memory_order_relaxed) >=
+                    hpx::state::stopping &&
+                take_from_stopped_workers(d, added))
             {
                 return false;
             }
