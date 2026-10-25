@@ -585,6 +585,55 @@ namespace hpx::threads::policies {
             return false;
         }
 
+        // Called by the scheduling loop of the last worker to leave during
+        // shutdown while it takes over the work left (see scheduling_loop).
+        // Stealing never takes bound threads, only their owner runs them: move
+        // the bound threads left on the queues of workers that have left their
+        // scheduling loop to the bound queue of this worker. This returns true
+        // if any work was moved.
+        bool take_over_work(std::size_t num_thread)
+        {
+            HPX_ASSERT(num_thread < num_workers_);
+
+            auto const bound_queue = [this](std::size_t i) {
+                return numa_holder_[d_lookup_[i]]
+                    .thread_queue(q_lookup_[i])
+                    ->bp_queue_;
+            };
+
+            thread_queue_type* this_queue = bound_queue(num_thread);
+            std::size_t added = 0;
+            for (std::size_t i = 0; i != num_workers_; ++i)
+            {
+                if (i == num_thread ||
+                    this->get_state(i).load(std::memory_order_relaxed) !=
+                        hpx::state::stopped)
+                {
+                    continue;
+                }
+
+                // staged threads
+                thread_queue_type* q = bound_queue(i);
+                std::size_t n = 0;
+                do
+                {
+                    n = this_queue->add_new(32, q, true);
+                    added += n;
+                } while (n != 0);
+
+                // pending threads
+                while (true)
+                {
+                    threads::thread_id_ref_type thrd;
+                    if (!q->get_next_thread(thrd, false, false))
+                        break;
+                    this_queue->schedule_work(HPX_MOVE(thrd), true);
+                    ++added;
+                }
+            }
+            return added != 0;
+        }
+
         // Return the next thread to be executed, return false if none available
         //
         // Note: this scheduler ignores the running and enable_stealing
@@ -592,7 +641,8 @@ namespace hpx::threads::policies {
         // mode says, also while the pool is stopping. That is what lets it
         // shut down cleanly when work is posted to the queue of a worker that
         // has already left its scheduling loop: the remaining workers keep
-        // stealing and run it. The other schedulers stop stealing once
+        // stealing and run it (except for bound threads, which are never
+        // stolen, see take_over_work). The other schedulers stop stealing once
         // running is false and rely on the last worker to leave taking the
         // work over (see scheduling_loop and leave_scheduling_loop). If this
         // scheduler starts to honor running or enable_stealing, it has to

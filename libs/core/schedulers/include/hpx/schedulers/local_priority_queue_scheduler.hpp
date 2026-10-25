@@ -1652,19 +1652,68 @@ namespace hpx::threads::policies {
 
         // Called by the scheduling loop of the last worker to leave during
         // shutdown while it takes over the work left (see scheduling_loop).
-        // Only the last worker converts the low priority tasks; once it has
-        // left, the worker taking over does it.
+        // Stealing can't reach all of it: the victims of a worker may not
+        // include the workers of other NUMA domains, nobody but its owner
+        // runs a worker's bound threads, and only the last worker converts the
+        // low priority threads. Move the work left on the queues of workers
+        // that have left their scheduling loop to the queues of this worker.
+        // This returns true if any work was moved.
         bool take_over_work(std::size_t num_thread)
         {
-            if (num_thread == num_queues_ - 1 ||
-                this->get_state(num_queues_ - 1)
-                        .load(std::memory_order_relaxed) != hpx::state::stopped)
-            {
-                return false;
-            }
+            HPX_ASSERT(num_thread < num_queues_);
 
             std::size_t added = 0;
-            low_priority_queue_.wait_or_add_new(true, added);
+
+            // pending threads, without applying the stealing minimum
+            auto const move_pending = [&added](thread_queue_type* from,
+                                          thread_queue_type* to) {
+                while (true)
+                {
+                    thread_id_ref_type thrd;
+                    if (!from->get_next_thread(thrd, false, true))
+                        return;
+                    to->schedule_thread(HPX_MOVE(thrd), true);
+                    ++added;
+                }
+            };
+
+            thread_queue_type* this_queue = queues_[num_thread].data_;
+            thread_queue_type* this_high_priority_queue =
+                num_thread < num_high_priority_queues_ ?
+                high_priority_queues_[num_thread].data_ :
+                this_queue;
+
+            for (std::size_t i = 0; i != num_queues_; ++i)
+            {
+                if (i == num_thread ||
+                    this->get_state(i).load(std::memory_order_relaxed) !=
+                        hpx::state::stopped)
+                {
+                    continue;
+                }
+
+                // staged threads (running == false skips the minimum)
+                if (i < num_high_priority_queues_)
+                {
+                    thread_queue_type* q = high_priority_queues_[i].data_;
+                    this_high_priority_queue->wait_or_add_new(
+                        false, added, q, true);
+                    move_pending(q, this_high_priority_queue);
+                }
+
+                thread_queue_type* q = bound_queues_[i].data_;
+                this_queue->wait_or_add_new(false, added, q, true);
+                move_pending(q, this_queue);
+
+                q = queues_[i].data_;
+                this_queue->wait_or_add_new(false, added, q, true);
+                move_pending(q, this_queue);
+
+                if (i == num_queues_ - 1)
+                {
+                    low_priority_queue_.wait_or_add_new(true, added);
+                }
+            }
             return added != 0;
         }
 

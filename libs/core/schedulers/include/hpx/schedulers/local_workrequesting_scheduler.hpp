@@ -1709,8 +1709,9 @@ namespace hpx::threads::policies {
         // Called by the scheduling loop of the last worker to leave during
         // shutdown while it takes over the work left (see scheduling_loop). A
         // worker that has left its scheduling loop doesn't answer steal
-        // requests anymore: move the work left on its queues to the queues of
-        // this worker. This returns true if any work was moved.
+        // requests anymore, and nobody but its owner runs a worker's bound
+        // threads: move the work left on its queues to the queues of this
+        // worker. This returns true if any work was moved.
         bool take_over_work(std::size_t num_thread)
         {
             HPX_ASSERT(num_thread < num_queues_);
@@ -1753,6 +1754,10 @@ namespace hpx::threads::policies {
 
                 // staged threads (running == false skips the minimum)
                 d.queue_->wait_or_add_new(false, added, victim.queue_, true);
+
+                d.queue_->wait_or_add_new(
+                    false, added, victim.bound_queue_, true);
+                move_pending(victim.bound_queue_, d.queue_);
 
                 // only the last worker runs the low priority threads
                 if (i == num_queues_ - 1)

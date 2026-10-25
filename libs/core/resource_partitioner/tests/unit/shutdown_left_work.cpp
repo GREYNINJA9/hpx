@@ -7,12 +7,12 @@
 // This test verifies that work scheduled during shutdown on the queue of a
 // worker that has already left its scheduling loop is still run. A task on one
 // worker of a pool waits until the pool is stopping and the other worker has
-// left, then schedules a task on the queue of that worker and a low priority
-// task (which some schedulers run only on the worker that has left). The last
-// worker to leave has to run both, otherwise the pool never becomes idle and
-// the runtime waits for them forever at exit. The static scheduler never
-// steals: it has to put the tasks on the queue of the producer's worker
-// instead. The test runs once for each scheduler.
+// left, then schedules a normal and a bound task on the queues of that worker
+// and a low priority task (which some schedulers run only on the worker that
+// has left). The last worker to leave has to run all of them, otherwise the
+// pool never becomes idle and the runtime waits for them forever at exit. The
+// static scheduler never steals: it has to put the tasks on the queue of the
+// producer's worker instead. The test runs once for each scheduler.
 
 #include <hpx/execution.hpp>
 #include <hpx/init.hpp>
@@ -59,7 +59,8 @@ namespace {
     // steal, and the other worker leaves its scheduling loop as soon as its
     // own queues are empty. This task keeps its own worker in the loop until
     // then (it yields, so it is on that worker's queue), and then schedules a
-    // task on the queue of the worker that has left and a low priority task.
+    // normal and a bound task on the queues of the worker that has left and a
+    // low priority task.
     // Worker 1 is the last worker of the pool, the one that converts or runs
     // the low priority tasks in some schedulers.
     void producer(hpx::threads::thread_pool_base* pool)
@@ -82,6 +83,13 @@ namespace {
             hpx::threads::thread_schedule_hint(
                 static_cast<std::int16_t>(other)));
         hpx::post(exec, [] { ++left_work_done; });
+
+        hpx::execution::parallel_executor bound_exec(pool,
+            hpx::threads::thread_priority::bound,
+            hpx::threads::thread_stacksize::default_,
+            hpx::threads::thread_schedule_hint(
+                static_cast<std::int16_t>(other)));
+        hpx::post(bound_exec, [] { ++left_work_done; });
 
         hpx::execution::parallel_executor low_exec(
             pool, hpx::threads::thread_priority::low);
@@ -111,7 +119,7 @@ int hpx_main()
         pool->stop(l, false);
     }
 
-    bool const done = yield_until([] { return left_work_done.load() == 2; });
+    bool const done = yield_until([] { return left_work_done.load() == 3; });
     HPX_TEST(left_work_posted);
     HPX_TEST(done);
 
@@ -122,7 +130,7 @@ int hpx_main()
         std::cerr
             << scheduler_name
             << ": the tasks left on a stopped worker's queues were not run ("
-            << left_work_done.load() << " of 2 done)\n";
+            << left_work_done.load() << " of 3 done)\n";
         std::_Exit(hpx::util::report_errors());
     }
 
