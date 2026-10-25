@@ -1706,11 +1706,31 @@ namespace hpx::threads::policies {
             }
         }
 
-        // Move the work left on the queues of workers that have left their
-        // scheduling loop to the queues of this worker, see wait_or_add_new.
-        // This returns true if any work was moved.
-        bool take_from_stopped_workers(scheduler_data& d, std::size_t& added)
+        // Called by the scheduling loop of the last worker to leave during
+        // shutdown while it takes over the work left (see scheduling_loop). A
+        // worker that has left its scheduling loop doesn't answer steal
+        // requests anymore: move the work left on its queues to the queues of
+        // this worker. This returns true if any work was moved.
+        bool take_over_work(std::size_t num_thread)
         {
+            HPX_ASSERT(num_thread < num_queues_);
+
+            auto& d = data_[num_thread].data_;
+            std::size_t added = 0;
+
+            // pending threads, without applying the stealing minimum
+            auto const move_pending = [&added](thread_queue_type* from,
+                                          thread_queue_type* to) {
+                while (true)
+                {
+                    thread_id_ref_type thrd;
+                    if (!from->get_next_thread(thrd, false, true))
+                        return;
+                    to->schedule_thread(HPX_MOVE(thrd), true);
+                    ++added;
+                }
+            };
+
             for (std::size_t i = 0; i != num_queues_; ++i)
             {
                 if (i == d.num_thread_ ||
@@ -1722,28 +1742,24 @@ namespace hpx::threads::policies {
 
                 auto& victim = data_[i].data_;
 
-                // pending threads, without applying the stealing minimum
-                thread_id_ref_type thrd;
                 if (i < num_high_priority_queues_)
                 {
-                    auto* q = d.num_thread_ < num_high_priority_queues_ ?
-                        d.high_priority_queue_ :
-                        d.queue_;
-                    while (victim.high_priority_queue_->get_next_thread(
-                        thrd, false, true))
-                    {
-                        q->schedule_thread(HPX_MOVE(thrd), true);
-                        ++added;
-                    }
+                    move_pending(victim.high_priority_queue_,
+                        d.num_thread_ < num_high_priority_queues_ ?
+                            d.high_priority_queue_ :
+                            d.queue_);
                 }
-                while (victim.queue_->get_next_thread(thrd, false, true))
-                {
-                    d.queue_->schedule_thread(HPX_MOVE(thrd), true);
-                    ++added;
-                }
+                move_pending(victim.queue_, d.queue_);
 
                 // staged threads (running == false skips the minimum)
                 d.queue_->wait_or_add_new(false, added, victim.queue_, true);
+
+                // only the last worker runs the low priority threads
+                if (i == num_queues_ - 1)
+                {
+                    low_priority_queue_.wait_or_add_new(false, added);
+                    move_pending(&low_priority_queue_, d.queue_);
+                }
             }
             return added != 0;
         }
@@ -1874,18 +1890,6 @@ namespace hpx::threads::policies {
 
             // check if no stealing is possible
             if (num_queues_ == 1)
-            {
-                return false;
-            }
-
-            // A worker that has left its scheduling loop doesn't answer steal
-            // requests anymore. The last worker to leave during shutdown runs
-            // as if the pool was running (see scheduling_loop) and takes the
-            // work left on the queues of such workers directly.
-            if (allow_stealing &&
-                this->get_state(num_thread).load(std::memory_order_relaxed) >=
-                    hpx::state::stopping &&
-                take_from_stopped_workers(d, added))
             {
                 return false;
             }

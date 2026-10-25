@@ -537,6 +537,24 @@ namespace hpx::threads::detail {
                 // background thread was stopped before
                 if (take_over)
                 {
+                    // the check for terminating below is skipped
+                    if (this_state.load(std::memory_order_relaxed) ==
+                        hpx::state::terminating)
+                    {
+                        break;
+                    }
+
+                    // A scheduler with work stealing can't reach (e.g. queues
+                    // only the worker that has left runs) moves it to this
+                    // worker's queues in take_over_work.
+                    if constexpr (requires {
+                                      scheduler.take_over_work(num_thread);
+                                  })
+                    {
+                        if (scheduler.take_over_work(num_thread))
+                            continue;
+                    }
+
                     if (leave())
                         break;
                     continue;

@@ -1650,6 +1650,24 @@ namespace hpx::threads::policies {
             return result;
         }
 
+        // Called by the scheduling loop of the last worker to leave during
+        // shutdown while it takes over the work left (see scheduling_loop).
+        // Only the last worker converts the low priority tasks; once it has
+        // left, the worker taking over does it.
+        bool take_over_work(std::size_t num_thread)
+        {
+            if (num_thread == num_queues_ - 1 ||
+                this->get_state(num_queues_ - 1)
+                        .load(std::memory_order_relaxed) != hpx::state::stopped)
+            {
+                return false;
+            }
+
+            std::size_t added = 0;
+            low_priority_queue_.wait_or_add_new(true, added);
+            return added != 0;
+        }
+
         ///////////////////////////////////////////////////////////////////////
         void on_start_thread(std::size_t num_thread) override
         {

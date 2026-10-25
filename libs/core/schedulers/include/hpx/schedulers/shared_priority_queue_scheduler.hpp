@@ -598,9 +598,10 @@ namespace hpx::threads::policies {
         // scheduler starts to honor running or enable_stealing, it has to
         // handle that shutdown case differently: the last worker taking over
         // calls it with running and enable_stealing set to true, and it has to
-        // reach the work on the queues of workers that have left then (see
-        // local_workrequesting_scheduler, which has to take that work
-        // directly). The test shutdown_left_work checks this case.
+        // reach the work on the queues of workers that have left then, or
+        // move it in take_over_work (see scheduling_loop and
+        // local_workrequesting_scheduler). The test shutdown_left_work checks
+        // this case.
         bool get_next_thread(std::size_t thread_num, bool running,
             threads::thread_id_ref_type& thrd, bool enable_stealing)
         {
