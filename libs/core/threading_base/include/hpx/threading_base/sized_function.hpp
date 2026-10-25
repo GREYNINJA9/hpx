@@ -13,7 +13,6 @@
 #include <hpx/modules/coroutines.hpp>
 #include <hpx/modules/functional.hpp>
 #include <hpx/modules/tracing.hpp>
-#include <hpx/threading_base/traits/get_task_size.hpp>
 
 #include <cstddef>
 #include <type_traits>
@@ -86,6 +85,21 @@ struct hpx::traits::get_task_size<hpx::threads::sized_function<F, Size>,
 {
     static constexpr threads::task_size value = Size;
 };
+
+namespace hpx::threads::detail {
+
+    // Store the size of F in the hint of the thread that runs it. If F has no
+    // size, the hint keeps the size it has, for instance from the caller's
+    // launch policy.
+    HPX_CXX_CORE_EXPORT template <typename F>
+    constexpr void set_task_size(thread_schedule_hint& hint) noexcept
+    {
+        if constexpr (traits::get_task_size_v<F> != task_size::unknown)
+        {
+            hint.task_size(traits::get_task_size_v<F>);
+        }
+    }
+}    // namespace hpx::threads::detail
 
 #if defined(HPX_HAVE_THREAD_DESCRIPTION)
 // The wrapped function keeps its address and annotation.

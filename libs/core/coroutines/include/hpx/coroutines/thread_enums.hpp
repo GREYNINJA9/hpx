@@ -246,6 +246,10 @@ namespace hpx::threads {
         large = 3
     };
 
+    // traits::get_task_size uses task_size{} as its default, as it can't name
+    // the values
+    static_assert(task_size{} == task_size::unknown);
+
     ///////////////////////////////////////////////////////////////////////////
     /// \enum thread_schedule_hint_mode
     ///

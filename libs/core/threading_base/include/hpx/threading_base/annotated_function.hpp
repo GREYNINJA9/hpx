@@ -17,7 +17,6 @@
 #include <hpx/threading_base/scoped_annotation.hpp>
 #include <hpx/threading_base/thread_description.hpp>
 #include <hpx/threading_base/thread_helpers.hpp>
-#include <hpx/threading_base/traits/get_task_size.hpp>
 #endif
 
 #include <cstddef>
