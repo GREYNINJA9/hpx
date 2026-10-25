@@ -1706,6 +1706,18 @@ namespace hpx::threads::policies {
             }
         }
 
+        // True while a bound thread created on this worker has not
+        // terminated. It runs only here, so the worker must not leave its
+        // scheduling loop: a thread being woken is marked pending before it
+        // is queued, and in between neither the suspended threads nor the
+        // queue length show it (see scheduling_loop).
+        bool has_live_bound_threads(std::size_t num_thread) const
+        {
+            HPX_ASSERT(num_thread < num_queues_);
+            return data_[num_thread].data_.bound_queue_->get_thread_count() !=
+                0;
+        }
+
         // Called by the scheduling loop of the last worker to leave during
         // shutdown while it takes over the work left (see scheduling_loop). A
         // worker that has left its scheduling loop doesn't answer steal
@@ -1755,9 +1767,10 @@ namespace hpx::threads::policies {
                 // staged threads (running == false skips the minimum)
                 d.queue_->wait_or_add_new(false, added, victim.queue_, true);
 
-                d.queue_->wait_or_add_new(
+                // bound threads stay bound, to this worker now
+                d.bound_queue_->wait_or_add_new(
                     false, added, victim.bound_queue_, true);
-                move_pending(victim.bound_queue_, d.queue_);
+                move_pending(victim.bound_queue_, d.bound_queue_);
 
                 // only the last worker runs the low priority threads
                 if (i == num_queues_ - 1)

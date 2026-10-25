@@ -130,6 +130,22 @@ namespace hpx::threads::detail {
             return false;
         };
 
+        // A bound thread created on this worker runs only here: while one is
+        // alive the worker must not leave, even if it is not queued yet (a
+        // woken thread is marked pending before it is queued)
+        auto const has_live_bound_threads = [&]() {
+            if constexpr (requires {
+                              scheduler.has_live_bound_threads(num_thread);
+                          })
+            {
+                return scheduler.has_live_bound_threads(num_thread);
+            }
+            else
+            {
+                return false;
+            }
+        };
+
         std::shared_ptr<bool> background_running;
         thread_id_ref_type background_thread;
         bool const do_background_work =
@@ -485,7 +501,8 @@ namespace hpx::threads::detail {
                         can_exit = can_exit &&
                             scheduler.SchedulingPolicy::get_thread_count(
                                 thread_schedule_state::suspended,
-                                thread_priority::default_, num_thread) == 0;
+                                thread_priority::default_, num_thread) == 0 &&
+                            !has_live_bound_threads();
 
                         if (can_exit)
                         {
@@ -642,7 +659,8 @@ namespace hpx::threads::detail {
                             thread_schedule_state::suspended,
                             thread_priority::default_, num_thread) == 0 &&
                         scheduler.SchedulingPolicy::get_queue_length(
-                            num_thread) == 0;
+                            num_thread) == 0 &&
+                        !has_live_bound_threads();
 
                     if (can_exit)
                     {

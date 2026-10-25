@@ -585,6 +585,19 @@ namespace hpx::threads::policies {
             return false;
         }
 
+        // True while a bound thread created on this worker has not
+        // terminated. It runs only here, so the worker must not leave its
+        // scheduling loop: a thread being woken is marked pending before it
+        // is queued, and in between neither the suspended threads nor the
+        // queue length show it (see scheduling_loop).
+        bool has_live_bound_threads(std::size_t num_thread)
+        {
+            HPX_ASSERT(num_thread < num_workers_);
+            return numa_holder_[d_lookup_[num_thread]]
+                       .thread_queue(q_lookup_[num_thread])
+                       ->get_live_bound_thread_count() != 0;
+        }
+
         // Called by the scheduling loop of the last worker to leave during
         // shutdown while it takes over the work left (see scheduling_loop).
         // Stealing never takes bound threads, only their owner runs them: move
