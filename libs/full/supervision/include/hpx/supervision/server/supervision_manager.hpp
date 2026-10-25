@@ -300,7 +300,11 @@ namespace hpx::supervision::server {
         // cannot accumulate indefinitely. This is enforced by sweep_timer_
         // independently of any further activity for `target`, in addition to
         // the opportunistic sweep performed by this function and
-        // publish_event() as a fast path.
+        // publish_event() as a fast path. Once cancel_all_waiters() has run
+        // (as a pre-shutdown step), every pending waiter's future has been
+        // made exceptional with an `hpx::error::invalid_status` exception, and
+        // a call that would have to register a new waiter returns such a
+        // future right away.
         hpx::future<lifecycle_state> await_terminal(hpx::id_type const& target,
             std::uint64_t epoch = 0,
             std::chrono::steady_clock::duration timeout =
