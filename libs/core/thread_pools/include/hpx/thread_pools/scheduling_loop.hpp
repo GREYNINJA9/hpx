@@ -99,6 +99,27 @@ namespace hpx::threads::detail {
         // spin for some time after queues have become empty
         bool may_exit = false;
 
+        // This worker was the last to leave and found work on the queues of
+        // workers that have left already (see leave_scheduling_loop). It
+        // runs and steals as if the pool was running until no work is left.
+        bool take_over = false;
+        scheduler.SchedulingPolicy::enter_scheduling_loop();
+
+        auto const leave = [&]() {
+            if (scheduler.SchedulingPolicy::leave_scheduling_loop())
+            {
+                this_state.store(hpx::state::stopped);
+                return true;
+            }
+            if (!take_over)
+            {
+                take_over = true;
+                may_exit = false;
+                idle_loop_count = 0;
+            }
+            return false;
+        };
+
         std::shared_ptr<bool> background_running;
         thread_id_ref_type background_thread;
         bool const do_background_work =
@@ -137,8 +158,9 @@ namespace hpx::threads::detail {
             }
 
             // Get the next HPX thread from the queue
-            bool running = this_state.load(std::memory_order_relaxed) <
-                hpx::state::pre_sleep;
+            bool running = take_over ||
+                this_state.load(std::memory_order_relaxed) <
+                    hpx::state::pre_sleep;
 
             // extract the stealing mode once per loop iteration (except during
             // shutdown)
@@ -469,8 +491,8 @@ namespace hpx::threads::detail {
                                 }
                                 else
                                 {
-                                    this_state.store(hpx::state::stopped);
-                                    break;
+                                    if (leave())
+                                        break;
                                 }
                             }
                             else
@@ -495,6 +517,15 @@ namespace hpx::threads::detail {
                 // if stealing yielded a new task, run it first
                 if (next_thrd != nullptr)
                 {
+                    continue;
+                }
+
+                // a worker that took over leaves once all work is done; its
+                // background thread was stopped before
+                if (take_over)
+                {
+                    if (leave())
+                        break;
                     continue;
                 }
 
@@ -584,8 +615,8 @@ namespace hpx::threads::detail {
 
                     if (can_exit)
                     {
-                        this_state.store(hpx::state::stopped);
-                        break;
+                        if (leave())
+                            break;
                     }
                 }
 

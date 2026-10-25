@@ -460,6 +460,32 @@ namespace hpx::threads::policies {
         return background_thread_count_;
     }
 
+    void scheduler_base::enter_scheduling_loop() noexcept
+    {
+        // publishes nothing, the count only has to cover this worker
+        workers_in_loop_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    bool scheduler_base::leave_scheduling_loop()
+    {
+        // release: makes the work this worker scheduled on other queues
+        // visible to the last worker; acquire: the last worker synchronizes
+        // with all earlier decrements (they form one release sequence), so
+        // the thread counts below include that work
+        if (workers_in_loop_.fetch_sub(1, std::memory_order_acq_rel) != 1)
+            return true;
+
+        // This is the last worker. All others are idle and have left, so no
+        // HPX thread can schedule new work anymore: whatever is left on any
+        // queue now is left there for good unless this worker runs it.
+        if (get_thread_count() <= get_background_thread_count())
+            return true;
+
+        // take the work over, see scheduling_loop
+        workers_in_loop_.fetch_add(1, std::memory_order_relaxed);
+        return false;
+    }
+
     void scheduler_base::increment_background_thread_count() noexcept
     {
         ++background_thread_count_;
