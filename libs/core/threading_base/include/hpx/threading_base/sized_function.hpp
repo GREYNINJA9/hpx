@@ -34,14 +34,6 @@ namespace hpx::threads {
         {
             return HPX_INVOKE(f, HPX_FORWARD(Ts, ts)...);
         }
-
-        template <typename Archive>
-        void serialize(Archive& ar, unsigned int const /*version*/)
-        {
-            // clang-format off
-            ar & f;
-            // clang-format on
-        }
     };
 
     ///////////////////////////////////////////////////////////////////////////
@@ -50,6 +42,36 @@ namespace hpx::threads {
     /// \param f Function whose task is expected to run for about \a Size
     HPX_CXX_CORE_EXPORT template <task_size Size, typename F>
     constexpr sized_function<std::decay_t<F>, Size> with_task_size(F&& f)
+    {
+        return {HPX_FORWARD(F, f)};
+    }
+
+    /// \brief Returns a function whose task is expected to run briefly.
+    ///
+    /// \param f Function to wrap
+    HPX_CXX_CORE_EXPORT template <typename F>
+    constexpr sized_function<std::decay_t<F>, task_size::small_> small_task(
+        F&& f)
+    {
+        return {HPX_FORWARD(F, f)};
+    }
+
+    /// \brief Returns a function whose task is expected to run for a while.
+    ///
+    /// \param f Function to wrap
+    HPX_CXX_CORE_EXPORT template <typename F>
+    constexpr sized_function<std::decay_t<F>, task_size::medium> medium_task(
+        F&& f)
+    {
+        return {HPX_FORWARD(F, f)};
+    }
+
+    /// \brief Returns a function whose task is expected to run for long.
+    ///
+    /// \param f Function to wrap
+    HPX_CXX_CORE_EXPORT template <typename F>
+    constexpr sized_function<std::decay_t<F>, task_size::large> large_task(
+        F&& f)
     {
         return {HPX_FORWARD(F, f)};
     }

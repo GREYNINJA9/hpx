@@ -4,23 +4,29 @@
 //  Distributed under the Boost Software License, Version 1.0. (See accompanying
 //  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-// This test checks hpx::threads::with_task_size: the size is visible through
-// traits::get_task_size (also through annotated_function and deferred_call),
-// the wrapper forwards arguments and results, and it runs through hpx::async,
-// hpx::post, an executor and future::then.
+// Checks with_task_size and its shorthands: the size is seen through
+// get_task_size (also through the binders, annotated_function and
+// deferred_call), the wrapper forwards arguments, serializes, and runs through
+// async, post, an executor, future::then and dataflow.
 
 #include <hpx/execution.hpp>
 #include <hpx/functional.hpp>
 #include <hpx/future.hpp>
 #include <hpx/init.hpp>
 #include <hpx/latch.hpp>
+#include <hpx/modules/serialization.hpp>
 #include <hpx/modules/testing.hpp>
 
 #include <cstring>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
+using hpx::threads::large_task;
+using hpx::threads::medium_task;
+using hpx::threads::small_task;
 using hpx::threads::task_size;
 using hpx::threads::with_task_size;
 
@@ -30,6 +36,17 @@ namespace {
     {
         return i + 1;
     }
+
+    // a public member only, so it is serialized without a serialize function
+    struct add_n
+    {
+        int n;
+
+        int operator()(int i) const
+        {
+            return i + n;
+        }
+    };
 
     template <typename F>
     inline constexpr task_size size_of = hpx::traits::get_task_size_v<F>;
@@ -79,6 +96,15 @@ void test_trait()
                       &plain_function)) == task_size::small_);
     static_assert(size_of_object(with_task_size<task_size::medium>(lambda)) ==
         task_size::medium);
+
+    // the shorthands give the same types as with_task_size
+    static_assert(std::is_same_v<decltype(small_task(lambda)),
+        decltype(with_task_size<task_size::small_>(lambda))>);
+    static_assert(std::is_same_v<decltype(medium_task(lambda)),
+        decltype(with_task_size<task_size::medium>(lambda))>);
+    static_assert(std::is_same_v<decltype(large_task(&plain_function)),
+        decltype(with_task_size<task_size::large>(&plain_function))>);
+    static_assert(size_of<decltype(small_task(lambda))> == task_size::small_);
 
     // the size is a template argument, so the wrapper is as big as f
     static_assert(sizeof(large) == sizeof(lambda));
@@ -139,6 +165,25 @@ void test_forwarding()
     auto set = with_task_size<task_size::small_>([](int& i) { i = 5; });
     set(value);
     HPX_TEST_EQ(value, 5);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+void test_serialization()
+{
+    auto const f = large_task(add_n{41});
+
+    std::vector<char> buffer;
+    {
+        hpx::serialization::output_archive oarchive(buffer);
+        oarchive << f;
+    }
+
+    std::decay_t<decltype(f)> loaded{add_n{0}};
+    {
+        hpx::serialization::input_archive iarchive(buffer);
+        iarchive >> loaded;
+    }
+    HPX_TEST_EQ(loaded(1), 42);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -228,6 +273,7 @@ int hpx_main()
 {
     test_trait();
     test_forwarding();
+    test_serialization();
     test_launch();
     test_composition();
 
