@@ -98,7 +98,7 @@ namespace hpx::detail {
                     HPX_FORWARD(F, f), HPX_FORWARD(Ts, ts)...),
                 desc, policy.priority(), hint, policy.stacksize(),
                 threads::thread_schedule_state::pending);
-            data.size = traits::get_task_size<std::decay_t<F>>::value;
+            data.size = traits::get_task_size_v<std::decay_t<F>>;
 
             threads::register_work(data, pool);
         }
@@ -133,7 +133,7 @@ namespace hpx::detail {
                     hint.sharing_mode()),
                 policy.stacksize(),
                 threads::thread_schedule_state::pending_do_not_schedule, true);
-            data.size = traits::get_task_size<std::decay_t<F>>::value;
+            data.size = traits::get_task_size_v<std::decay_t<F>>;
 
             threads::thread_id_ref_type const tid =
                 threads::register_thread(data, pool);

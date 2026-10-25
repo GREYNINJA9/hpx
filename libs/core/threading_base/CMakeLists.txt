@@ -42,6 +42,7 @@ set(threading_base_headers
     hpx/threading_base/thread_specific_ptr.hpp
     hpx/threading_base/threading_base_fwd.hpp
     hpx/threading_base/tracing_sample_rate.hpp
+    hpx/threading_base/traits/get_task_size.hpp
 )
 
 if(HPX_WITH_APEX)

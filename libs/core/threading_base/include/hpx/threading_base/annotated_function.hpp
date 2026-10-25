@@ -17,6 +17,7 @@
 #include <hpx/threading_base/scoped_annotation.hpp>
 #include <hpx/threading_base/thread_description.hpp>
 #include <hpx/threading_base/thread_helpers.hpp>
+#include <hpx/threading_base/traits/get_task_size.hpp>
 #endif
 
 #include <cstddef>
@@ -163,9 +164,9 @@ struct hpx::traits::get_function_annotation<hpx::detail::annotated_function<F>>
     }
 };
 
-template <typename F>
-struct hpx::traits::get_task_size<hpx::detail::annotated_function<F>>
-  : get_task_size<typename hpx::detail::annotated_function<F>::fun_type>
+template <typename F, hpx::threads::task_size Size>
+struct hpx::traits::get_task_size<hpx::detail::annotated_function<F>, Size>
+  : get_task_size<typename hpx::detail::annotated_function<F>::fun_type, Size>
 {
 };
 

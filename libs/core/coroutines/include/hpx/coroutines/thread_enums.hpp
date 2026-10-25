@@ -234,6 +234,19 @@ namespace hpx::threads {
         thread_stacksize size) noexcept;
 
     ///////////////////////////////////////////////////////////////////////////
+    /// \enum task_size
+    ///
+    /// The expected run time of a task, a hint the scheduler may use. A task
+    /// with an unknown size is scheduled as it would be without the hint.
+    HPX_CXX_CORE_EXPORT enum class task_size : std::uint8_t {
+        unknown = 0,
+        small_ = 1,    ///< the underscore is to work around 'small' being
+                       ///  defined to char on Windows
+        medium = 2,
+        large = 3
+    };
+
+    ///////////////////////////////////////////////////////////////////////////
     /// \enum thread_schedule_hint_mode
     ///
     /// The type of hint given when creating new tasks.

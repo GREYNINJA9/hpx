@@ -250,7 +250,7 @@ namespace hpx::lcos::detail {
                     this_->template run_impl<Unwrap>(HPX_MOVE(f));
                 },
                 desc, this->runs_child_,
-                traits::get_task_size<std::decay_t<F>>::value);
+                traits::get_task_size_v<std::decay_t<F>>);
         }
 
     public:

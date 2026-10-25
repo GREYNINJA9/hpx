@@ -10,8 +10,10 @@
 #pragma once
 
 #include <hpx/config.hpp>
+#include <hpx/modules/coroutines.hpp>
 #include <hpx/modules/functional.hpp>
 #include <hpx/modules/tracing.hpp>
+#include <hpx/threading_base/traits/get_task_size.hpp>
 
 #include <cstddef>
 #include <type_traits>
@@ -54,8 +56,11 @@ namespace hpx::threads {
 }    // namespace hpx::threads
 
 ///////////////////////////////////////////////////////////////////////////////
-template <typename F, hpx::threads::task_size Size>
-struct hpx::traits::get_task_size<hpx::threads::sized_function<F, Size>>
+// The size given to the wrapper wins over the default.
+template <typename F, hpx::threads::task_size Size,
+    hpx::threads::task_size Default>
+struct hpx::traits::get_task_size<hpx::threads::sized_function<F, Size>,
+    Default>
 {
     static constexpr threads::task_size value = Size;
 };

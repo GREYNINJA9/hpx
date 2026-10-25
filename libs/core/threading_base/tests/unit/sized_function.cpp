@@ -32,7 +32,7 @@ namespace {
     }
 
     template <typename F>
-    inline constexpr task_size size_of = hpx::traits::get_task_size<F>::value;
+    inline constexpr task_size size_of = hpx::traits::get_task_size_v<F>;
 
     template <typename F>
     constexpr task_size size_of_object(F const&)
@@ -88,6 +88,18 @@ void test_trait()
         task_size::large);
     static_assert(size_of<decltype(hpx::util::deferred_call(lambda, 1))> ==
         task_size::unknown);
+
+    // the second argument is reported when the function has no size, and a
+    // wrapper's size wins over it
+    using hpx::traits::get_task_size_v;
+    static_assert(get_task_size_v<decltype(lambda), task_size::large> ==
+        task_size::large);
+    static_assert(get_task_size_v<decltype(large), task_size::small_> ==
+        task_size::large);
+    static_assert(get_task_size_v<decltype(hpx::util::deferred_call(lambda, 1)),
+                      task_size::medium> == task_size::medium);
+    static_assert(get_task_size_v<decltype(hpx::annotated_function(lambda)),
+                      task_size::medium> == task_size::medium);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
