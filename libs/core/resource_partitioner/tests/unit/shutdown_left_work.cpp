@@ -154,12 +154,16 @@ void test_scheduler(int argc, char* argv[],
     hpx::local::init_params init_args;
     init_args.desc_cmdline = desc;
     init_args.cfg = {"hpx.os_threads=3"};
+
+    // the default pool may have to share a PU with the pool "work", see below
+    init_args.rp_mode = hpx::resource::partitioner_mode::allow_oversubscription;
     init_args.rp_callback = [scheduler](hpx::resource::partitioner& rp,
                                 hpx::program_options::variables_map const&) {
         rp.create_thread_pool("work", scheduler);
 
         // two workers for the pool "work", the rest stays in the default pool
         std::size_t threads_added = 0;
+        hpx::resource::pu const* first_pu = nullptr;
         for (hpx::resource::numa_domain const& d : rp.numa_domains())
         {
             for (hpx::resource::core const& c : d.cores())
@@ -169,10 +173,20 @@ void test_scheduler(int argc, char* argv[],
                     if (threads_added < 2)
                     {
                         rp.add_resource(p, "work");
+                        if (first_pu == nullptr)
+                            first_pu = &p;
                         ++threads_added;
                     }
                 }
             }
+        }
+
+        // with only two threads (the tests may be limited to two threads per
+        // locality, see HPX_WITH_TESTS_MAX_THREADS_PER_LOCALITY) no PU is
+        // left for the default pool, let it share the first PU of "work"
+        if (rp.get_number_requested_threads() < 3 && first_pu != nullptr)
+        {
+            rp.add_resource(*first_pu, "default");
         }
     };
 
