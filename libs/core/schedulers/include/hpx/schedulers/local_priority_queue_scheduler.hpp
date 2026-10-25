@@ -567,12 +567,13 @@ namespace hpx::threads::policies {
                 data.priority = thread_priority::normal;
             }
 
-            if (data.schedulehint.mode == thread_schedule_hint_mode::thread)
+            if (data.schedulehint.mode() == thread_schedule_hint_mode::thread)
             {
                 HPX_ASSERT(data.schedulehint.hint >= 0);
                 num_thread = data.schedulehint.hint;
             }
-            else if (data.schedulehint.mode == thread_schedule_hint_mode::numa)
+            else if (data.schedulehint.mode() ==
+                thread_schedule_hint_mode::numa)
             {
                 // Route to a worker thread on the requested NUMA domain.
                 // Fall back to round-robin if the domain has no threads.
@@ -595,11 +596,11 @@ namespace hpx::threads::policies {
                         break;
                     }
                 }
-                data.schedulehint.mode = thread_schedule_hint_mode::thread;
+                data.schedulehint.mode(thread_schedule_hint_mode::thread);
             }
             else
             {
-                data.schedulehint.mode = thread_schedule_hint_mode::thread;
+                data.schedulehint.mode(thread_schedule_hint_mode::thread);
             }
 
             if (static_cast<std::size_t>(-1) == num_thread)
@@ -914,7 +915,7 @@ namespace hpx::threads::policies {
         {
             // NOTE: This scheduler ignores NUMA hints.
             auto num_thread = static_cast<std::size_t>(-1);
-            if (schedulehint.mode == thread_schedule_hint_mode::thread)
+            if (schedulehint.mode() == thread_schedule_hint_mode::thread)
             {
                 num_thread = schedulehint.hint;
             }
@@ -1030,7 +1031,7 @@ namespace hpx::threads::policies {
             // priority is initially_bound, then schedule the thread as
             // initially bound to make sure the thread starts running on the
             // specified core.
-            if (schedulehint.mode == thread_schedule_hint_mode::thread)
+            if (schedulehint.mode() == thread_schedule_hint_mode::thread)
             {
                 HPX_ASSERT(schedulehint.hint >= 0);
                 num_thread = schedulehint.hint;

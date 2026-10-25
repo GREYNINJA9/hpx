@@ -158,10 +158,9 @@ namespace hpx::lcos::detail {
             threads::thread_init_data data(
                 threads::make_thread_function_nullary(HPX_FORWARD(F, f)),
                 HPX_MOVE(desc), threads::thread_priority::default_,
-                threads::thread_schedule_hint(),
+                threads::thread_schedule_hint(size),
                 threads::thread_stacksize::default_,
                 threads::thread_schedule_state::pending);
-            data.size = size;
 
             threads::register_thread(data, id);
         }

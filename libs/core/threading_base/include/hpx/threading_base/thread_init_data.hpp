@@ -40,7 +40,6 @@ namespace hpx::threads {
           , stacksize(thread_stacksize::default_)
           , initial_state(thread_schedule_state::pending)
           , run_now(false)
-          , size(task_size::unknown)
           , scheduler_base(nullptr)
         {
             if (initial_state == thread_schedule_state::staged)
@@ -60,7 +59,6 @@ namespace hpx::threads {
             stacksize = rhs.stacksize;
             initial_state = rhs.initial_state;
             run_now = rhs.run_now;
-            size = rhs.size;
             scheduler_base = rhs.scheduler_base;
 #if defined(HPX_HAVE_THREAD_DESCRIPTION)
             description = HPX_MOVE(rhs.description);
@@ -91,7 +89,6 @@ namespace hpx::threads {
           , stacksize(rhs.stacksize)
           , initial_state(rhs.initial_state)
           , run_now(rhs.run_now)
-          , size(rhs.size)
           , scheduler_base(rhs.scheduler_base)
         {
         }
@@ -121,7 +118,6 @@ namespace hpx::threads {
           , stacksize(stacksize_)
           , initial_state(initial_state_)
           , run_now(run_now_)
-          , size(task_size::unknown)
           , scheduler_base(scheduler_base_)
         {
             if (initial_state == thread_schedule_state::staged)
@@ -175,9 +171,6 @@ namespace hpx::threads {
         thread_stacksize stacksize;
         thread_schedule_state initial_state;
         bool run_now;
-        // expected run time of the task; unknown unless the code creating
-        // the thread sets it from traits::get_task_size
-        task_size size;
 
         policies::scheduler_base* scheduler_base;
     };

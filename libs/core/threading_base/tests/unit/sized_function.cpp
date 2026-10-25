@@ -168,6 +168,46 @@ void test_forwarding()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void test_hint()
+{
+    using hpx::threads::thread_schedule_hint;
+    using hpx::threads::thread_schedule_hint_mode;
+
+    static_assert(sizeof(thread_schedule_hint) == 4);
+
+    thread_schedule_hint hint;
+    HPX_TEST(hint.task_size() == task_size::unknown);
+    hint.task_size(task_size::medium);
+    HPX_TEST(hint.task_size() == task_size::medium);
+    HPX_TEST(hint != thread_schedule_hint());
+
+    // every part keeps its value next to the others, numa (2) included, which
+    // needs the mode stored unsigned
+    thread_schedule_hint const all(thread_schedule_hint_mode::numa, 5,
+        hpx::threads::thread_placement_hint::depth_first,
+        hpx::threads::thread_execution_hint::run_as_child,
+        hpx::threads::thread_sharing_hint::do_not_combine_tasks,
+        task_size::large);
+    HPX_TEST(all.mode() == thread_schedule_hint_mode::numa);
+    HPX_TEST_EQ(all.hint, 5);
+    HPX_TEST(all.task_size() == task_size::large);
+    HPX_TEST(all.placement_mode() ==
+        hpx::threads::thread_placement_hint::depth_first);
+    HPX_TEST(all.runs_as_child_mode() ==
+        hpx::threads::thread_execution_hint::run_as_child);
+    HPX_TEST(all.sharing_mode() ==
+        hpx::threads::thread_sharing_hint::do_not_combine_tasks);
+
+    // a function's size goes into the hint, a function without one leaves it
+    auto lambda = [] {};
+    thread_schedule_hint h(task_size::small_);
+    hpx::threads::detail::set_task_size<decltype(lambda)>(h);
+    HPX_TEST(h.task_size() == task_size::small_);
+    hpx::threads::detail::set_task_size<decltype(large_task(lambda))>(h);
+    HPX_TEST(h.task_size() == task_size::large);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void test_serialization()
 {
     auto const f = large_task(add_n{41});
@@ -273,6 +313,7 @@ int hpx_main()
 {
     test_trait();
     test_forwarding();
+    test_hint();
     test_serialization();
     test_launch();
     test_composition();
