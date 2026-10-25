@@ -38,9 +38,6 @@ set(fan_out_join_FLAGS COMPILE_FLAGS -DHPX_HAVE_RUN_MAIN_EVERYWHERE)
 set(fenced_dispatch_PARAMETERS LOCALITIES 2)
 
 set(finalize_with_pending_sweep_PARAMETERS LOCALITIES 2)
-set(finalize_with_pending_sweep_FLAGS COMPILE_FLAGS
-                                      -DHPX_HAVE_RUN_MAIN_EVERYWHERE
-)
 
 set(registry_mirroring_PARAMETERS LOCALITIES 2)
 set(registry_mirroring_FLAGS COMPILE_FLAGS -DHPX_HAVE_RUN_MAIN_EVERYWHERE)
