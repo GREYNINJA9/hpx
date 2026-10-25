@@ -28,10 +28,35 @@ namespace hpx::traits {
         get_task_size<F, Size>::value;
 
     ///////////////////////////////////////////////////////////////////////////
-    // hpx::async binds the arguments with deferred_call, which runs as long
-    // as the function it calls.
+    // The binders and deferred_call (which hpx::async uses for the arguments)
+    // run as long as the function they call. They are specialized here as
+    // the functional module can't see task_size.
     template <threads::task_size Size, typename F, typename... Ts>
     struct get_task_size<util::detail::deferred<F, Ts...>, Size>
+      : get_task_size<F, Size>
+    {
+    };
+
+    template <threads::task_size Size, typename F, typename... Ts>
+    struct get_task_size<hpx::detail::bound<F, Ts...>, Size>
+      : get_task_size<F, Size>
+    {
+    };
+
+    template <threads::task_size Size, typename F, typename... Ts>
+    struct get_task_size<hpx::detail::bound_front<F, Ts...>, Size>
+      : get_task_size<F, Size>
+    {
+    };
+
+    template <threads::task_size Size, typename F, typename... Ts>
+    struct get_task_size<hpx::detail::bound_back<F, Ts...>, Size>
+      : get_task_size<F, Size>
+    {
+    };
+
+    template <threads::task_size Size, typename F>
+    struct get_task_size<util::detail::one_shot_wrapper<F>, Size>
       : get_task_size<F, Size>
     {
     };

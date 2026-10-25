@@ -100,6 +100,20 @@ void test_trait()
                       task_size::medium> == task_size::medium);
     static_assert(get_task_size_v<decltype(hpx::annotated_function(lambda)),
                       task_size::medium> == task_size::medium);
+
+    // the binders see through to the function they call
+    using hpx::placeholders::_1;
+    static_assert(size_of<decltype(hpx::bind(large, _1))> == task_size::large);
+    static_assert(
+        size_of<decltype(hpx::bind_front(large, 1))> == task_size::large);
+    static_assert(
+        size_of<decltype(hpx::bind_back(large, 1))> == task_size::large);
+    static_assert(
+        size_of<decltype(hpx::util::one_shot(large))> == task_size::large);
+    static_assert(
+        size_of<decltype(hpx::bind(lambda, _1))> == task_size::unknown);
+    static_assert(get_task_size_v<decltype(hpx::bind_front(lambda, 1)),
+                      task_size::small_> == task_size::small_);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -158,6 +172,13 @@ void test_launch()
                         [](hpx::future<int> fut) { return fut.get() + 1; }))
                     .get(),
         2);
+
+    HPX_TEST_EQ(
+        hpx::dataflow(with_task_size<task_size::large>(
+                          [](hpx::future<int> fut) { return fut.get(); }),
+            hpx::make_ready_future(3))
+            .get(),
+        3);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
