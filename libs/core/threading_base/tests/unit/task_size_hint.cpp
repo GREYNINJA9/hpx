@@ -144,6 +144,23 @@ void test_function_sizes()
         },
         0, 0, 1);
 
+    // the names in namespace hpx
+    check_sizes(
+        [] {
+            hpx::latch l(2);
+            hpx::post(hpx::large_task([&] { l.count_down(1); }));
+            l.arrive_and_wait();
+        },
+        0, 0, 1);
+    check_sizes(
+        [] {
+            HPX_TEST_EQ(
+                hpx::async(hpx::with_task_size<hpx::task_size::small_>(&answer))
+                    .get(),
+                42);
+        },
+        1, 0, 0);
+
     // a function without a size creates its thread without one
     check_sizes([] { HPX_TEST_EQ(hpx::async(&answer).get(), 42); }, 0, 0, 0);
 }

@@ -26,6 +26,11 @@ namespace hpx::threads {
     };
 }    // namespace hpx::threads
 
+namespace hpx {
+
+    HPX_CXX_CORE_EXPORT using threads::task_size;
+}    // namespace hpx
+
 namespace hpx::traits {
 
     // By default, we don't know how long the function runs, so we report the

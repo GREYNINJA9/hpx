@@ -168,6 +168,21 @@ void test_forwarding()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void test_hpx_names()
+{
+    auto lambda = [] {};
+    static_assert(std::is_same_v<hpx::task_size, hpx::threads::task_size>);
+    static_assert(std::is_same_v<decltype(hpx::small_task(lambda)),
+        decltype(hpx::threads::small_task(lambda))>);
+    static_assert(std::is_same_v<decltype(hpx::medium_task(lambda)),
+        decltype(hpx::threads::medium_task(lambda))>);
+    static_assert(std::is_same_v<decltype(hpx::large_task(lambda)),
+        decltype(hpx::threads::large_task(lambda))>);
+    static_assert(size_of<decltype(hpx::with_task_size<hpx::task_size::medium>(
+                      lambda))> == hpx::task_size::medium);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 void test_hint()
 {
     using hpx::threads::thread_schedule_hint;
@@ -313,6 +328,7 @@ int hpx_main()
 {
     test_trait();
     test_forwarding();
+    test_hpx_names();
     test_hint();
     test_serialization();
     test_launch();

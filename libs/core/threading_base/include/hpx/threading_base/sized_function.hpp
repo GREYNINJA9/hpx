@@ -76,6 +76,14 @@ namespace hpx::threads {
     }
 }    // namespace hpx::threads
 
+namespace hpx {
+
+    HPX_CXX_CORE_EXPORT using threads::large_task;
+    HPX_CXX_CORE_EXPORT using threads::medium_task;
+    HPX_CXX_CORE_EXPORT using threads::small_task;
+    HPX_CXX_CORE_EXPORT using threads::with_task_size;
+}    // namespace hpx
+
 ///////////////////////////////////////////////////////////////////////////////
 // The size given to the wrapper wins over the default.
 template <typename F, hpx::threads::task_size Size,
