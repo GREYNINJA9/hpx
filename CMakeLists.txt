@@ -1923,9 +1923,9 @@ hpx_option(
 
 # Check if the selected compiler versions are supposed to work with our codebase
 if(CMAKE_COMPILER_IS_GNUCXX AND HPX_WITH_GCC_VERSION_CHECK)
-  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 7.0)
+  if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 12.0)
     hpx_error(
-      "GCC 7.0 or higher is required. Specify HPX_WITH_GCC_VERSION_CHECK=OFF to ignore this error."
+      "GCC 12.0 or higher is required (found ${CMAKE_CXX_COMPILER_VERSION}). Specify -DHPX_WITH_GCC_VERSION_CHECK=OFF to remove this check at your own risk."
     )
   endif()
 endif()
