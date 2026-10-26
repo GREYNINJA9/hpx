@@ -134,7 +134,10 @@ namespace hpx::threads {
             priorities (e.g. the local queue scheduler selected with
             \a --hpx:queuing=local) do not provide this guarantee: for those,
             this value only affects the initial placement, and the thread may
-            be stolen by, or resumed on, another worker thread. */
+            be stolen by, or resumed on, another worker thread. A bound
+            thread that has not run yet and is scheduled on a worker thread
+            after that worker has left its scheduling loop during shutdown
+            is run by the worker that takes over the remaining work. */
         initially_bound = 7,          /*!< Task initially goes onto a special
             high priority queue and will never be stolen by another thread
             after initial assignment. If the thread is rescheduled later, it
