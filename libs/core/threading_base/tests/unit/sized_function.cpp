@@ -82,12 +82,6 @@ namespace {
     template <typename F>
     inline constexpr task_size size_of = hpx::traits::get_task_size_v<F>;
 
-    template <typename F>
-    constexpr task_size size_of_object(F const&)
-    {
-        return size_of<F>;
-    }
-
 #if defined(HPX_HAVE_THREAD_DESCRIPTION)
     // Has a name only through the trait, so the name its thread gets must
     // come from sized_function forwarding get_function_annotation.
@@ -117,16 +111,17 @@ struct hpx::traits::get_function_annotation<named_function>
 ///////////////////////////////////////////////////////////////////////////////
 void test_trait()
 {
-    // constexpr, as the wrapper copies it in a constant expression below
-    constexpr auto lambda = [](int i) { return i; };
+    auto lambda = [](int i) { return i; };
     static_assert(size_of<decltype(lambda)> == task_size::unknown);
     static_assert(size_of<decltype(&plain_function)> == task_size::unknown);
 
     auto large = with_task_size<task_size::large>(lambda);
     static_assert(size_of<decltype(large)> == task_size::large);
-    static_assert(size_of_object(with_task_size<task_size::small_>(
-                      &plain_function)) == task_size::small_);
-    static_assert(size_of_object(with_task_size<task_size::medium>(lambda)) ==
+    static_assert(
+        size_of<decltype(with_task_size<task_size::small_>(&plain_function))> ==
+        task_size::small_);
+    static_assert(
+        size_of<decltype(with_task_size<task_size::medium>(lambda))> ==
         task_size::medium);
 
     // the shorthands give the same types as with_task_size
@@ -348,8 +343,8 @@ void test_composition()
     auto annotated_sized =
         hpx::annotated_function(with_task_size<task_size::medium>(f), "inner");
 
-    static_assert(size_of_object(sized_annotated) == task_size::large);
-    static_assert(size_of_object(annotated_sized) == task_size::medium);
+    static_assert(size_of<decltype(sized_annotated)> == task_size::large);
+    static_assert(size_of<decltype(annotated_sized)> == task_size::medium);
     static_assert(
         size_of<decltype(hpx::util::deferred_call(sized_annotated))> ==
         task_size::large);
