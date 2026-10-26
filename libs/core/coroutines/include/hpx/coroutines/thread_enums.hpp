@@ -11,6 +11,7 @@
 #include <hpx/config.hpp>
 #include <hpx/coroutines/config/defines.hpp>
 #include <hpx/coroutines/detail/combined_tagged_state.hpp>
+#include <hpx/modules/functional.hpp>
 
 #include <cstdint>
 #include <iosfwd>
@@ -232,23 +233,6 @@ namespace hpx::threads {
     /// \param size this represents the stack size
     HPX_CXX_CORE_EXPORT HPX_CORE_EXPORT char const* get_stack_size_enum_name(
         thread_stacksize size) noexcept;
-
-    ///////////////////////////////////////////////////////////////////////////
-    /// \enum task_size
-    ///
-    /// The expected run time of a task, a hint the scheduler may use. A task
-    /// with an unknown size is scheduled as it would be without the hint.
-    HPX_CXX_CORE_EXPORT enum class task_size : std::uint8_t {
-        unknown = 0,
-        small_ = 1,    ///< the underscore is to work around 'small' being
-                       ///  defined to char on Windows
-        medium = 2,
-        large = 3
-    };
-
-    // traits::get_task_size uses task_size{} as its default, as it can't name
-    // the values
-    static_assert(task_size{} == task_size::unknown);
 
     ///////////////////////////////////////////////////////////////////////////
     /// \enum thread_schedule_hint_mode

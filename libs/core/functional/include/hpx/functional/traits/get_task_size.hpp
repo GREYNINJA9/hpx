@@ -12,9 +12,18 @@
 
 namespace hpx::threads {
 
-    // The values are defined in hpx/coroutines/thread_enums.hpp, which this
-    // module can't include. task_size{} is task_size::unknown.
-    HPX_CXX_CORE_EXPORT enum class task_size : std::uint8_t;
+    ///////////////////////////////////////////////////////////////////////////
+    /// \enum task_size
+    ///
+    /// The expected run time of a task, a hint the scheduler may use. A task
+    /// with an unknown size is scheduled as it would be without the hint.
+    HPX_CXX_CORE_EXPORT enum class task_size : std::uint8_t {
+        unknown = 0,
+        small_ = 1,    ///< the underscore is to work around 'small' being
+                       ///  defined to char on Windows
+        medium = 2,
+        large = 3
+    };
 }    // namespace hpx::threads
 
 namespace hpx::traits {
@@ -22,14 +31,15 @@ namespace hpx::traits {
     // By default, we don't know how long the function runs, so we report the
     // given Size
     HPX_CXX_CORE_EXPORT template <typename F,
-        threads::task_size Size = threads::task_size{}, typename Enable = void>
+        threads::task_size Size = threads::task_size::unknown,
+        typename Enable = void>
     struct get_task_size
     {
         static constexpr threads::task_size value = Size;
     };
 
     HPX_CXX_CORE_EXPORT template <typename F,
-        threads::task_size Size = threads::task_size{}>
+        threads::task_size Size = threads::task_size::unknown>
     inline constexpr threads::task_size get_task_size_v =
         get_task_size<F, Size>::value;
 }    // namespace hpx::traits
