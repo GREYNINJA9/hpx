@@ -1408,7 +1408,10 @@ namespace hpx::supervision::server {
                 // post_main()) or the runtime is shutting down, a remote
                 // agent's locality may be gone already and its reply never
                 // arrive. Drop the agent instead of blocking the runtime's
-                // shutdown on it.
+                // shutdown on it. An agent on a locality that is still alive
+                // also stops receiving the last_observer_unregistered
+                // notifications for the targets tidy() removes: they are
+                // dropped, so nothing should rely on them at shutdown.
                 std::uint32_t const agent_locality =
                     naming::get_locality_id_from_gid(agent.get_gid());
                 bool const unreachable =
@@ -1426,7 +1429,21 @@ namespace hpx::supervision::server {
                         hpx::async(hpx::launch::task, action_type(), agent,
                             HPX_MOVE(notification));
 
-                    erase_agent = !keep_registered.get();
+                    // wait in slices, so that a reply that never comes (the
+                    // agent's locality left) doesn't block teardown
+                    while (keep_registered.wait_for(std::chrono::milliseconds(
+                               100)) != hpx::future_status::ready)
+                    {
+                        if (tearing_down_.load(std::memory_order_acquire) ||
+                            hpx::is_stopped_or_shutting_down() ||
+                            parcelset::locality_was_disconnected(
+                                agent_locality))
+                        {
+                            break;    // drop the agent, see above
+                        }
+                    }
+                    erase_agent =
+                        !keep_registered.is_ready() || !keep_registered.get();
                 }
 
                 if (erase_agent)
