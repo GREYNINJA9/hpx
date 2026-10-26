@@ -24,6 +24,7 @@
 #include <cstddef>
 #include <memory>
 #include <utility>
+#include <vector>
 
 using hpx::threads::task_size;
 
@@ -64,6 +65,33 @@ namespace {
         HPX_TEST_EQ(count(task_size::small_) - small_before, small_);
         HPX_TEST_EQ(count(task_size::medium) - medium_before, medium);
         HPX_TEST_EQ(count(task_size::large) - large_before, large);
+    }
+
+    // For paths whose number of threads depends on the workers: at least one
+    // thread has the given size and none has another known size, or no
+    // thread has a known size if the given size is unknown.
+    template <typename F>
+    void check_only_size(F&& f, task_size size)
+    {
+        auto const count = [](task_size s) {
+            return created_with[static_cast<std::size_t>(s)].load();
+        };
+        task_size const known[] = {
+            task_size::small_, task_size::medium, task_size::large};
+        int before[3];
+        for (int i = 0; i != 3; ++i)
+            before[i] = count(known[i]);
+
+        HPX_FORWARD(F, f)();
+
+        for (int i = 0; i != 3; ++i)
+        {
+            int const created = count(known[i]) - before[i];
+            if (known[i] == size)
+                HPX_TEST_LT(0, created);
+            else
+                HPX_TEST_EQ(created, 0);
+        }
     }
 
     int answer()
@@ -237,11 +265,82 @@ void test_executor_sizes()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// bulk_async_execute, bulk_sync_execute, then_execute and bulk_then_execute,
+// with a large function, through Executor with and without a small size. The
+// bulk functions return a value if WithResult is set.
+template <typename Executor, bool WithResult>
+void test_executor_paths(task_size bulk_sync_with_executor_size)
+{
+    namespace ex = hpx::parallel::execution;
+
+    auto const small_exec = hpx::execution::experimental::with_hint(
+        Executor{}, hpx::threads::thread_schedule_hint(task_size::small_));
+    Executor const exec;
+    std::vector<int> const shape(16);
+
+    auto const bulk_f = hpx::large_task([](int i) {
+        if constexpr (WithResult)
+            return i;
+    });
+    auto const then_f = hpx::large_task([](hpx::future<void>&& f) { f.get(); });
+    auto const bulk_then_f = hpx::large_task([](int i, auto&&...) {
+        if constexpr (WithResult)
+            return i;
+    });
+
+    // the executor's size wins on every path
+    check_only_size(
+        [&] {
+            hpx::wait_all(ex::bulk_async_execute(small_exec, bulk_f, shape));
+        },
+        task_size::small_);
+    check_only_size([&] { ex::bulk_sync_execute(small_exec, bulk_f, shape); },
+        bulk_sync_with_executor_size);
+    check_only_size(
+        [&] {
+            ex::then_execute(small_exec, then_f, hpx::make_ready_future())
+                .get();
+        },
+        task_size::small_);
+    check_only_size(
+        [&] {
+            hpx::wait_all(ex::bulk_then_execute(small_exec, bulk_then_f, shape,
+                hpx::make_ready_future().share()));
+        },
+        task_size::small_);
+
+    // without one, then_execute uses the function's size; these bulk paths
+    // run f inside tasks of their own, so they don't
+    check_only_size(
+        [&] { hpx::wait_all(ex::bulk_async_execute(exec, bulk_f, shape)); },
+        task_size::unknown);
+    check_only_size([&] { ex::bulk_sync_execute(exec, bulk_f, shape); },
+        task_size::unknown);
+    check_only_size(
+        [&] { ex::then_execute(exec, then_f, hpx::make_ready_future()).get(); },
+        task_size::large);
+    check_only_size(
+        [&] {
+            hpx::wait_all(ex::bulk_then_execute(
+                exec, bulk_then_f, shape, hpx::make_ready_future().share()));
+        },
+        task_size::unknown);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 int hpx_main()
 {
     test_function_sizes();
     test_policy_sizes();
     test_executor_sizes();
+
+    // With one worker, parallel_executor's bulk_sync_execute runs its only
+    // chunk inline, without a thread. The hierarchical executor is tested
+    // with functions without a result, which it runs inside tasks of its own.
+    test_executor_paths<hpx::execution::parallel_executor, true>(
+        task_size::unknown);
+    test_executor_paths<hpx::execution::parallel_executor_spawn_hierarchically,
+        false>(task_size::small_);
 
     return hpx::local::finalize();
 }
