@@ -529,7 +529,7 @@ namespace hpx::supervision::server {
 
         mutable std::string instance_name_;
 
-        // Set once tidy() starts; see fire_activity_event().
+        // Set while tidy() is running; see fire_activity_event().
         std::atomic<bool> tearing_down_{false};
 
         // registered events: targets -> states

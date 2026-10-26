@@ -8,6 +8,7 @@
 #include <hpx/assert.hpp>
 #include <hpx/modules/errors.hpp>
 #include <hpx/modules/format.hpp>
+#include <hpx/modules/functional.hpp>
 #include <hpx/modules/futures.hpp>
 #include <hpx/modules/lock_registration.hpp>
 #include <hpx/modules/runtime_local.hpp>
@@ -1405,19 +1406,22 @@ namespace hpx::supervision::server {
 
         return hpx::detail::try_catch_exception_ptr(
             [&]() {
-                // Once tidy() has started (it only runs during teardown, from
-                // post_main()) or the runtime is shutting down, a remote
+                // While tidy() runs or the runtime is shutting down, a remote
                 // agent's locality may be gone already and its reply never
-                // arrive. Drop the agent instead of blocking the runtime's
+                // arrive. Drop a remote agent instead of blocking the runtime's
                 // shutdown on it. An agent on a locality that is still alive
                 // also stops receiving the last_observer_unregistered
                 // notifications for the targets tidy() removes: they are
-                // dropped, so nothing should rely on them at shutdown.
+                // dropped while tidy() runs, so nothing should rely on them at
+                // shutdown. A local agent is always waited for: it cannot
+                // become unreachable, and its callback has to complete before
+                // deliver_activity_notification() returns.
                 std::uint32_t const agent_locality =
                     naming::get_locality_id_from_gid(agent.get_gid());
+                bool const remote = agent_locality != agas::get_locality_id();
                 bool const unreachable =
                     parcelset::locality_was_disconnected(agent_locality) ||
-                    (agent_locality != agas::get_locality_id() &&
+                    (remote &&
                         (tearing_down_.load(std::memory_order_acquire) ||
                             hpx::is_stopped_or_shutting_down()));
 
@@ -1431,14 +1435,19 @@ namespace hpx::supervision::server {
                             HPX_MOVE(notification));
 
                     // wait in slices, so that a reply that never comes (the
-                    // agent's locality left) doesn't block teardown
+                    // agent's locality left) doesn't block teardown. Only a
+                    // remote agent can become unreachable; a local callback
+                    // must still complete before this returns, as promised by
+                    // deliver_activity_notification().
                     while (keep_registered.wait_for(std::chrono::milliseconds(
                                100)) != hpx::future_status::ready)
                     {
-                        if (tearing_down_.load(std::memory_order_acquire) ||
-                            hpx::is_stopped_or_shutting_down() ||
-                            parcelset::locality_was_disconnected(
-                                agent_locality))
+                        if (parcelset::locality_was_disconnected(
+                                agent_locality) ||
+                            (remote &&
+                                (tearing_down_.load(
+                                     std::memory_order_acquire) ||
+                                    hpx::is_stopped_or_shutting_down())))
                         {
                             break;    // drop the agent, see above
                         }
@@ -1794,7 +1803,16 @@ namespace hpx::supervision::server {
     // this is a no-op.
     void supervision_manager::tidy()
     {
+        // tidy() is part of the public API and may run while the runtime is
+        // still active. Treat remote agents as unreachable only while this
+        // call is running, so that observers registered afterwards receive
+        // notifications again. A delivery still pending once the runtime
+        // starts shutting down is caught by
+        // hpx::is_stopped_or_shutting_down(), and one to a locality that left
+        // by parcelset::locality_was_disconnected().
         tearing_down_.store(true, std::memory_order_release);
+        auto const reset_tearing_down = hpx::experimental::scope_exit(
+            [this] { tearing_down_.store(false, std::memory_order_release); });
 
         std::vector<hpx::id_type> targets;
 
