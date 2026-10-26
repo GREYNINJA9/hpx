@@ -1001,6 +1001,17 @@ namespace hpx::execution {
             hpx::threads::thread_description desc(f);
 #endif
 
+            // as in bulk_async_execute, a size set on the executor wins
+            if (this->policy_.hint().task_size() != threads::task_size::unknown)
+            {
+                return parallel::execution::detail::
+                    hierarchical_bulk_sync_execute(desc, this->pool(),
+                        this->get_first_core(), this->get_num_cores(),
+                        hierarchical_threshold_, this->policy_,
+                        threads::with_task_size<threads::task_size::unknown>(
+                            HPX_FORWARD(F, f)),
+                        shape, HPX_FORWARD(Ts, ts)...);
+            }
             return parallel::execution::detail::hierarchical_bulk_sync_execute(
                 desc, this->pool(), this->get_first_core(),
                 this->get_num_cores(), hierarchical_threshold_, this->policy_,
@@ -1018,6 +1029,19 @@ namespace hpx::execution {
             hpx::threads::thread_description desc(f);
 #endif
 
+            // For a function with a result each element runs f in its own
+            // thread, so as in async_impl, a size set on the executor wins by
+            // hiding the function's size.
+            if (this->policy_.hint().task_size() != threads::task_size::unknown)
+            {
+                return parallel::execution::detail::
+                    hierarchical_bulk_async_execute(desc, this->pool(),
+                        this->get_first_core(), this->get_num_cores(),
+                        hierarchical_threshold_, this->policy_,
+                        threads::with_task_size<threads::task_size::unknown>(
+                            HPX_FORWARD(F, f)),
+                        shape, HPX_FORWARD(Ts, ts)...);
+            }
             return parallel::execution::detail::hierarchical_bulk_async_execute(
                 desc, this->pool(), this->get_first_core(),
                 this->get_num_cores(), hierarchical_threshold_, this->policy_,
