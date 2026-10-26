@@ -117,7 +117,8 @@ struct hpx::traits::get_function_annotation<named_function>
 ///////////////////////////////////////////////////////////////////////////////
 void test_trait()
 {
-    auto lambda = [](int i) { return i; };
+    // constexpr, as the wrapper copies it in a constant expression below
+    constexpr auto lambda = [](int i) { return i; };
     static_assert(size_of<decltype(lambda)> == task_size::unknown);
     static_assert(size_of<decltype(&plain_function)> == task_size::unknown);
 
