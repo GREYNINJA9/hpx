@@ -16,6 +16,8 @@
 # * HPX_StdexecAsyncScopeNvcc.patch: exec::async_scope::on_empty() under nvcc
 # * HPX_StdexecNvccGcc13.patch: sender instantiations with nvcc and a GCC 13
 #   host compiler
+# * HPX_StdexecNvccDiagnostics.patch: nonvirtual diagnostics for nvcc's
+#   host-side HPX sender chains
 # * HPX_StdexecSyclAtomic.patch: opt-out of CUDA's atomics for SYCL builds
 
 if(NOT DEFINED HPX_STDEXEC_SOURCE_DIR)

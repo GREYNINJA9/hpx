@@ -38,6 +38,9 @@ if(HPX_WITH_FETCH_STDEXEC)
   set(_hpx_stdexec_gcc13_nvcc_patch
       "${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecNvccGcc13.patch"
   )
+  set(_hpx_stdexec_diagnostics_nvcc_patch
+      "${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecNvccDiagnostics.patch"
+  )
   set(_hpx_stdexec_sycl_atomic_patch
       "${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecSyclAtomic.patch"
   )
@@ -71,6 +74,10 @@ if(HPX_WITH_FETCH_STDEXEC)
       ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
       "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_gcc13_nvcc_patch}"
+      "-DHPX_STDEXEC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}" -P
+      ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
+      ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
+      "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_diagnostics_nvcc_patch}"
       "-DHPX_STDEXEC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}" -P
       ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
