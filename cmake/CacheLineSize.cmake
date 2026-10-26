@@ -86,10 +86,11 @@ endfunction()
 # The minimal distance between data written by different cores
 # (threads::get_destructive_interference_size()).
 # HPX_WITH_DESTRUCTIVE_INTERFERENCE_SIZE overrides the default chosen by the
-# target architecture in the generated header; 0 selects that default.
+# target architecture in the generated header; an empty value selects that
+# default.
 function(destructive_interference_size cache_line_size output_var)
   set(size 0)
-  if(HPX_WITH_DESTRUCTIVE_INTERFERENCE_SIZE)
+  if(NOT "${HPX_WITH_DESTRUCTIVE_INTERFERENCE_SIZE}" STREQUAL "")
     set(size ${HPX_WITH_DESTRUCTIVE_INTERFERENCE_SIZE})
     if(NOT size MATCHES "^[1-9][0-9]*$")
       hpx_error(
