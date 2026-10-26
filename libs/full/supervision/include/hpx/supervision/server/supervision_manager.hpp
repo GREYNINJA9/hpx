@@ -529,8 +529,9 @@ namespace hpx::supervision::server {
 
         mutable std::string instance_name_;
 
-        // Set while tidy() is running; see fire_activity_event().
-        std::atomic<bool> tearing_down_{false};
+        // Number of tidy() calls currently in progress; see
+        // fire_activity_event().
+        std::atomic<std::uint32_t> active_tidies_{0};
 
         // registered events: targets -> states
         std::map<hpx::id_type, lifecycle_state> states_;

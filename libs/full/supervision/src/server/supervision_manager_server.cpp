@@ -1406,28 +1406,35 @@ namespace hpx::supervision::server {
 
         return hpx::detail::try_catch_exception_ptr(
             [&]() {
-                // While tidy() runs or the runtime is shutting down, a remote
-                // agent's locality may be gone already and its reply never
-                // arrive. Drop a remote agent instead of blocking the runtime's
-                // shutdown on it. An agent on a locality that is still alive
-                // also stops receiving the last_observer_unregistered
-                // notifications for the targets tidy() removes: they are
-                // dropped while tidy() runs, so nothing should rely on them at
-                // shutdown. A local agent is always waited for: it cannot
-                // become unreachable, and its callback has to complete before
-                // deliver_activity_notification() returns.
+                // If the runtime is shutting down or a remote agent's locality
+                // is gone already, that agent's reply may never arrive. Drop
+                // the remote agent instead of blocking shutdown on it. An
+                // active-runtime tidy() is different: it only skips delivery
+                // for the duration of the call, while keeping the observer
+                // registered for later notifications. A local agent is always
+                // waited for: it cannot become unreachable, and its callback
+                // has to complete before deliver_activity_notification()
+                // returns.
                 std::uint32_t const agent_locality =
                     naming::get_locality_id_from_gid(agent.get_gid());
                 bool const remote = agent_locality != agas::get_locality_id();
                 bool const unreachable =
                     parcelset::locality_was_disconnected(agent_locality) ||
-                    (remote &&
-                        (tearing_down_.load(std::memory_order_acquire) ||
-                            hpx::is_stopped_or_shutting_down()));
+                    (remote && hpx::is_stopped_or_shutting_down());
 
                 bool erase_agent = true;
                 if (!unreachable)
                 {
+                    // Skip remote deliveries while a tidy() is running, but
+                    // leave the observer registered: tidy() may be called
+                    // while the runtime is still active, and the observer
+                    // should receive later notifications.
+                    if (remote &&
+                        active_tidies_.load(std::memory_order_acquire) != 0)
+                    {
+                        return hpx::make_ready_future();
+                    }
+
                     using action_type =
                         activity_agent_component::invoke_if_active_action;
                     hpx::future<bool> keep_registered =
@@ -1439,21 +1446,36 @@ namespace hpx::supervision::server {
                     // remote agent can become unreachable; a local callback
                     // must still complete before this returns, as promised by
                     // deliver_activity_notification().
+                    bool keep_agent = false;
                     while (keep_registered.wait_for(std::chrono::milliseconds(
                                100)) != hpx::future_status::ready)
                     {
                         if (parcelset::locality_was_disconnected(
                                 agent_locality) ||
-                            (remote &&
-                                (tearing_down_.load(
-                                     std::memory_order_acquire) ||
-                                    hpx::is_stopped_or_shutting_down())))
+                            (remote && hpx::is_stopped_or_shutting_down()))
                         {
                             break;    // drop the agent, see above
                         }
+                        if (remote &&
+                            active_tidies_.load(std::memory_order_acquire) != 0)
+                        {
+                            // tidy() started while this delivery was already
+                            // in flight. Abandon the delivery, but keep the
+                            // observer registered for later notifications.
+                            keep_agent = true;
+                            break;
+                        }
                     }
-                    erase_agent =
-                        !keep_registered.is_ready() || !keep_registered.get();
+
+                    if (keep_agent && !keep_registered.is_ready())
+                    {
+                        erase_agent = false;
+                    }
+                    else
+                    {
+                        erase_agent = !keep_registered.is_ready() ||
+                            !keep_registered.get();
+                    }
                 }
 
                 if (erase_agent)
@@ -1804,15 +1826,18 @@ namespace hpx::supervision::server {
     void supervision_manager::tidy()
     {
         // tidy() is part of the public API and may run while the runtime is
-        // still active. Treat remote agents as unreachable only while this
-        // call is running, so that observers registered afterwards receive
-        // notifications again. A delivery still pending once the runtime
-        // starts shutting down is caught by
+        // still active, and concurrent calls may overlap. Count active calls
+        // so that remote deliveries are skipped for as long as any tidy() is
+        // running, and so that one call cannot clear the state while another
+        // still processes its target snapshot. A delivery still pending once
+        // the runtime starts shutting down is caught by
         // hpx::is_stopped_or_shutting_down(), and one to a locality that left
-        // by parcelset::locality_was_disconnected().
-        tearing_down_.store(true, std::memory_order_release);
-        auto const reset_tearing_down = hpx::experimental::scope_exit(
-            [this] { tearing_down_.store(false, std::memory_order_release); });
+        // by parcelset::locality_was_disconnected(). During an active-runtime
+        // tidy() remote observers are only skipped, not unregistered; see
+        // fire_activity_event().
+        active_tidies_.fetch_add(1, std::memory_order_acq_rel);
+        auto const finish_tidy = hpx::experimental::scope_exit(
+            [this] { active_tidies_.fetch_sub(1, std::memory_order_acq_rel); });
 
         std::vector<hpx::id_type> targets;
 
