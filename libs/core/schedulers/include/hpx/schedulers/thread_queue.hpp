@@ -87,7 +87,7 @@ namespace hpx::threads::policies {
     // };
     HPX_CXX_CORE_EXPORT template <typename Mutex, typename PendingQueuing,
         typename StagedQueuing, typename TerminatedQueuing>
-    class alignas(threads::get_cache_line_size()) thread_queue
+    class alignas(threads::get_destructive_interference_size()) thread_queue
     {
     private:
         // we use a simple mutex to protect the data members for now

@@ -2006,6 +2006,18 @@ target_architecture(__target_arch)
 include(CacheLineSize)
 cache_line_size(__cache_line_size)
 
+hpx_option(
+  HPX_WITH_DESTRUCTIVE_INTERFERENCE_SIZE
+  STRING
+  "Minimal distance in bytes between data written by different cores, to avoid false sharing (empty: chosen by the target architecture, 128 on x86-64 and ARM64) (default: \"\")"
+  ""
+  CATEGORY "Thread Manager"
+  ADVANCED
+)
+destructive_interference_size(
+  ${__cache_line_size} __destructive_interference_size
+)
+
 # ##############################################################################
 # Set configuration option to use Boost.Context or not. This depends on the
 # platform.
@@ -2499,6 +2511,11 @@ else()
   endif()
 endif()
 hpx_info("Cacheline size detected: ${__cache_line_size}")
+if(__destructive_interference_size)
+  hpx_info(
+    "Destructive interference size set to: ${__destructive_interference_size}"
+  )
+endif()
 
 # store target architecture for later use
 set(HPX_WITH_TARGET_ARCHITECTURE
