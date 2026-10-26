@@ -50,7 +50,7 @@ namespace {
     // Runs f and checks how many threads it created with each known size.
     // Threads created by the runtime itself have no size, so they don't count.
     template <typename F>
-    void check(F&& f, int small_, int medium, int large)
+    void check_sizes(F&& f, int small_, int medium, int large)
     {
         auto const count = [](task_size s) {
             return created_with[static_cast<std::size_t>(s)].load();
@@ -86,7 +86,7 @@ void test_function_sizes()
     using hpx::threads::small_task;
 
     // hpx::post
-    check(
+    check_sizes(
         [] {
             hpx::latch l(2);
             hpx::post(large_task([&] { l.count_down(1); }));
@@ -95,15 +95,15 @@ void test_function_sizes()
         0, 0, 1);
 
     // hpx::async, without and with arguments (bound with deferred_call)
-    check([] { HPX_TEST_EQ(hpx::async(medium_task(&answer)).get(), 42); }, 0, 1,
-        0);
-    check(
+    check_sizes([] { HPX_TEST_EQ(hpx::async(medium_task(&answer)).get(), 42); },
+        0, 1, 0);
+    check_sizes(
         [] {
             HPX_TEST_EQ(
                 hpx::async(small_task([](int i) { return i; }), 1).get(), 1);
         },
         1, 0, 0);
-    check(
+    check_sizes(
         [] {
             HPX_TEST_EQ(
                 hpx::async(hpx::launch::fork, large_task(&answer)).get(), 42);
@@ -111,7 +111,7 @@ void test_function_sizes()
         0, 0, 1);
 
     // an executor
-    check(
+    check_sizes(
         [] {
             hpx::execution::parallel_executor exec;
             hpx::latch l(2);
@@ -122,7 +122,7 @@ void test_function_sizes()
         1, 0, 0);
 
     // future::then and dataflow
-    check(
+    check_sizes(
         [] {
             HPX_TEST_EQ(hpx::make_ready_future(1)
                             .then(hpx::launch::async,
@@ -133,7 +133,7 @@ void test_function_sizes()
                 2);
         },
         0, 1, 0);
-    check(
+    check_sizes(
         [] {
             HPX_TEST_EQ(
                 hpx::dataflow(hpx::launch::async,
@@ -145,20 +145,20 @@ void test_function_sizes()
         0, 0, 1);
 
     // a function without a size creates its thread without one
-    check([] { HPX_TEST_EQ(hpx::async(&answer).get(), 42); }, 0, 0, 0);
+    check_sizes([] { HPX_TEST_EQ(hpx::async(&answer).get(), 42); }, 0, 0, 0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 void test_policy_sizes()
 {
     // the policy's size is kept for a function without a size
-    check(
+    check_sizes(
         [] {
             HPX_TEST_EQ(
                 hpx::async(async_with(task_size::small_), &answer).get(), 42);
         },
         1, 0, 0);
-    check(
+    check_sizes(
         [] {
             hpx::execution::parallel_policy_executor<hpx::launch::async_policy>
                 exec{async_with(task_size::medium)};
@@ -169,7 +169,7 @@ void test_policy_sizes()
         0, 1, 0);
 
     // and the function's size wins over it
-    check(
+    check_sizes(
         [] {
             HPX_TEST_EQ(hpx::async(async_with(task_size::small_),
                             hpx::threads::large_task(&answer))
