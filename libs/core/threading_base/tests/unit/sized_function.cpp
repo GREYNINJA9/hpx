@@ -48,6 +48,37 @@ namespace {
         }
     };
 
+    // can only be called as an lvalue, which is how the wrapper calls f
+    struct lvalue_only
+    {
+        int operator()() &
+        {
+            return 3;
+        }
+    };
+
+    struct const_lvalue_only
+    {
+        int operator()() const&
+        {
+            return 4;
+        }
+    };
+
+    // tells which call operator was used
+    struct const_or_not
+    {
+        int operator()()
+        {
+            return 1;
+        }
+
+        int operator()() const
+        {
+            return 2;
+        }
+    };
+
     template <typename F>
     inline constexpr task_size size_of = hpx::traits::get_task_size_v<F>;
 
@@ -165,6 +196,31 @@ void test_forwarding()
     auto set = with_task_size<task_size::small_>([](int& i) { i = 5; });
     set(value);
     HPX_TEST_EQ(value, 5);
+
+    // a const wrapper calls f as const, through a const reference too
+    auto which = small_task(const_or_not{});
+    auto const& const_which = which;
+    HPX_TEST_EQ(which(), 1);
+    HPX_TEST_EQ(const_which(), 2);
+
+    auto const add_const = small_task(add_n{41});
+    HPX_TEST_EQ(add_const(1), 42);
+
+    // f is called as an lvalue, so callables that only allow that work; only
+    // the non-const call operator can call an operator() &
+    auto lvalue = small_task(lvalue_only{});
+    HPX_TEST_EQ(lvalue(), 3);
+
+    auto const_lvalue = small_task(const_lvalue_only{});
+    auto const& const_lvalue_ref = const_lvalue;
+    HPX_TEST_EQ(const_lvalue(), 4);
+    HPX_TEST_EQ(const_lvalue_ref(), 4);
+
+    // a returned reference stays a reference
+    auto const get = small_task([&value]() -> int& { return value; });
+    static_assert(std::is_same_v<decltype(get()), int&>);
+    get() = 7;
+    HPX_TEST_EQ(value, 7);
 }
 
 ///////////////////////////////////////////////////////////////////////////////

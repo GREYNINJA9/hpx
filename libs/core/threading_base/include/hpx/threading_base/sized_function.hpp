@@ -29,7 +29,13 @@ namespace hpx::threads {
         F f;
 
         template <typename... Ts>
-        hpx::util::invoke_result_t<F, Ts...> operator()(Ts&&... ts)
+        decltype(auto) operator()(Ts&&... ts)
+        {
+            return HPX_INVOKE(f, HPX_FORWARD(Ts, ts)...);
+        }
+
+        template <typename... Ts>
+        decltype(auto) operator()(Ts&&... ts) const
         {
             return HPX_INVOKE(f, HPX_FORWARD(Ts, ts)...);
         }
