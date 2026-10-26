@@ -197,10 +197,51 @@ void test_policy_sizes()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+void test_executor_sizes()
+{
+    // an executor with a size overwrites the function's size
+    auto const small_exec = hpx::execution::experimental::with_hint(
+        hpx::execution::parallel_executor{},
+        hpx::threads::thread_schedule_hint(task_size::small_));
+    check_sizes(
+        [&] {
+            hpx::latch l(2);
+            hpx::parallel::execution::post(
+                small_exec, hpx::large_task([&] { l.count_down(1); }));
+            l.arrive_and_wait();
+        },
+        1, 0, 0);
+    check_sizes(
+        [&] {
+            HPX_TEST_EQ(
+                hpx::async(small_exec, hpx::large_task(&answer)).get(), 42);
+        },
+        1, 0, 0);
+
+    // without a size on the executor, the function's size stays
+    check_sizes(
+        [] {
+            hpx::execution::parallel_executor exec;
+            hpx::latch l(2);
+            hpx::parallel::execution::post(
+                exec, hpx::large_task([&] { l.count_down(1); }));
+            l.arrive_and_wait();
+        },
+        0, 0, 1);
+    check_sizes(
+        [] {
+            hpx::execution::parallel_executor exec;
+            HPX_TEST_EQ(hpx::async(exec, hpx::large_task(&answer)).get(), 42);
+        },
+        0, 0, 1);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 int hpx_main()
 {
     test_function_sizes();
     test_policy_sizes();
+    test_executor_sizes();
 
     return hpx::local::finalize();
 }

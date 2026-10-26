@@ -280,6 +280,16 @@ namespace hpx::execution {
             hpx::threads::thread_description desc(f);
 #endif
 
+            // A size set on the executor wins over the function's: hiding the
+            // function's size leaves the executor's size in the hint.
+            if (policy_.hint().task_size() != threads::task_size::unknown)
+            {
+                return hpx::detail::async_launch_policy_dispatch<Policy>::call(
+                    policy_, desc, pool(),
+                    threads::with_task_size<threads::task_size::unknown>(
+                        HPX_FORWARD(F, f)),
+                    HPX_FORWARD(Ts, ts)...);
+            }
             return hpx::detail::async_launch_policy_dispatch<Policy>::call(
                 policy_, desc, pool(), HPX_FORWARD(F, f),
                 HPX_FORWARD(Ts, ts)...);
@@ -322,6 +332,16 @@ namespace hpx::execution {
             hpx::threads::thread_description desc(f);
 #endif
 
+            // as in async_impl, a size set on the executor wins
+            if (policy_.hint().task_size() != threads::task_size::unknown)
+            {
+                hpx::detail::post_policy_dispatch<Policy>::call(policy_, desc,
+                    pool(),
+                    threads::with_task_size<threads::task_size::unknown>(
+                        HPX_FORWARD(F, f)),
+                    HPX_FORWARD(Ts, ts)...);
+                return;
+            }
             hpx::detail::post_policy_dispatch<Policy>::call(policy_, desc,
                 pool(), HPX_FORWARD(F, f), HPX_FORWARD(Ts, ts)...);
         }
