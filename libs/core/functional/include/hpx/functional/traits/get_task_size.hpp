@@ -33,8 +33,9 @@ namespace hpx {
 
 namespace hpx::traits {
 
-    // By default, we don't know how long the function runs, so we report the
-    // given Size
+    // By default, we don't know how long the function runs. Size stays
+    // unknown for callers; it is an extension point for specializations,
+    // which pass it on to the function they wrap.
     HPX_CXX_CORE_EXPORT template <typename F,
         threads::task_size Size = threads::task_size::unknown,
         typename Enable = void>
