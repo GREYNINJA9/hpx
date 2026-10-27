@@ -56,6 +56,14 @@ pull_request_url = "https://github.com/TheHPXProject/hpx/pull/{}"
 # At most this many labels on the x axis, and dates on the axis above it
 max_commit_labels = 40
 max_date_labels = 8
+# The size of their text
+label_size = 7.5
+
+# GitHub shows a README at most about 830 pixels wide (on the start page of the
+# repository, next to its sidebar); a graph of this width (in inches) fills it,
+# together with the labels around it. A wider one would be scaled down, and its
+# text with it.
+graph_width = 10.2
 
 
 def time_unit(seconds):
@@ -122,7 +130,7 @@ def plot(benchmark, series, commits, position, args, path):
     medians = [median for points in series.values() for _, median in points]
     unit, factor = time_unit(min(medians))
 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(graph_width, 4))
     for (name, executor, node), points in sorted(series.items()):
         points = sorted(points, key=lambda point: position[point[0]])
         label = f"{name} ({executor})"
@@ -161,7 +169,7 @@ def plot(benchmark, series, commits, position, args, path):
     shown = ordered[::step]
     ax.set_xticks([position[commit] for commit in shown])
     ax.set_xticklabels([commit_label(commit, commits) for commit in shown],
-        rotation=90, fontsize=7.5)
+        rotation=90, fontsize=label_size)
     ax.set_xlim(-0.5, len(ordered) - 0.5)
     dates = ax.secondary_xaxis('top')
     # the first commit of each day
@@ -170,7 +178,8 @@ def plot(benchmark, series, commits, position, args, path):
     dated = dated[::math.ceil(len(dated) / max_date_labels)]
     dates.set_xticks([position[commit] for commit in dated])
     dates.set_xticklabels(
-        [f"{commits[commit][1]:%Y-%m-%d}" for commit in dated], fontsize=7.5)
+        [f"{commits[commit][1]:%Y-%m-%d}" for commit in dated],
+        fontsize=label_size)
     dates.tick_params(pad=8)
     ax.set_xlabel("master commit (pull request, or the commit without one)")
     ax.set_ylabel(f"median time [{unit}]")
