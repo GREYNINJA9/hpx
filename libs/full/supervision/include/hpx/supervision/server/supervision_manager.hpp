@@ -335,6 +335,12 @@ namespace hpx::supervision::server {
     protected:
         hpx::future<void> fire_events(hpx::id_type const& target,
             lifecycle_event_notification const& notification);
+
+        // Delivers `notification` to the single per-target observer `agent`,
+        // if it is still registered. A delivery that fails because the
+        // observer's locality went away unregisters the observer and does
+        // not make the returned future exceptional; any other failure (e.g.
+        // the callback threw) does, so the caller can record_error() it.
         hpx::future<void> fire_event(hpx::id_type const& target,
             hpx::id_type const& agent,
             lifecycle_event_notification notification);
@@ -367,6 +373,9 @@ namespace hpx::supervision::server {
         hpx::future<void> fire_activity_event(
             hpx::id_type const& agent, activity_notification notification);
 
+        // Records `target` as failed because delivering the notification with
+        // `expected_sequence_number` to one of its observers failed. Not
+        // called for an observer whose locality went away, see fire_event().
         void record_error(hpx::id_type const& target,
             std::uint64_t expected_sequence_number, hpx::error_code const& ec);
 

@@ -457,6 +457,14 @@ observer-based synchronization described here and the polling-with-timeout
 failure detection described earlier are complementary, not overlapping,
 mechanisms.
 
+The reverse case matters as well: the observers a joining locality
+registered live on the *peer's* locality, so they outlive the joining
+locality if it dies. The next notification the peer sends to such an
+observer fails because the joining locality is gone, and that unregisters
+the observer on the peer. The failure does not change the peer's own state,
+so the peer keeps admitting dispatch as before. A coordinator that joined
+all of its workers can therefore crash without fencing any of them.
+
 Because ``observers_`` is keyed per target and holds a list rather than a
 single callback, this fan-out is genuinely one-to-many: if several
 localities have each independently joined the same peer, a single event

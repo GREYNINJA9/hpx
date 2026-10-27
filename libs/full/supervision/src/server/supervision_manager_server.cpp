@@ -891,7 +891,27 @@ namespace hpx::supervision::server {
             std::exception_ptr ep;
             hpx::detail::try_catch_exception_ptr(
                 [&]() { keep_registered = f.get(); },
-                [&](std::exception_ptr const& e) { ep = e; });
+                [&](std::exception_ptr const& e) {
+                    // If the observer's locality went away (e.g. it was
+                    // killed), the delivery failed because of the observer,
+                    // not because of target. Drop the observer instead of
+                    // reporting the failure: the caller would record it as
+                    // target having failed, fencing a healthy target. Any
+                    // other failure (e.g. the callback threw) is reported as
+                    // before.
+                    std::uint32_t const agent_locality =
+                        naming::get_locality_id_from_gid(agent.get_gid());
+                    if (hpx::get_error(e) ==
+                            hpx::error::locality_was_disconnected ||
+                        parcelset::locality_was_disconnected(agent_locality))
+                    {
+                        keep_registered = false;
+                    }
+                    else
+                    {
+                        ep = e;
+                    }
+                });
 
             bool deactivated = false;
 

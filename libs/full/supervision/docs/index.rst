@@ -89,6 +89,12 @@ Registering observers
     at registration time) whose epoch matches; by default the observer
     receives notifications for every epoch.
 
+    If the locality ``callback`` lives on goes away (for instance, because it
+    was killed), the observer is unregistered once a notification to it fails
+    because of that. Such a failure is a problem of the observer, not of
+    ``target``: it does not change the lifecycle state recorded for
+    ``target``, and so does not fence dispatch to it.
+
 .. _supervision_unregister_observer:
 
 Unregistering observers
