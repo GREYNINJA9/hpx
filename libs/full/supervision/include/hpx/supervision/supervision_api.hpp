@@ -504,11 +504,15 @@ namespace hpx::supervision {
     /// \note           The callback must not throw; exceptions thrown from
     ///                 it are logged and do not affect the observer
     ///                 registration.
-    /// \note           If the locality the callback lives on goes away (e.g.
-    ///                 it was killed), the observer is unregistered once a
-    ///                 notification to it fails because of that. Such a
-    ///                 failure does not change the lifecycle state recorded
-    ///                 for \a target.
+    /// \note           If \a locality differs from the locality the callback
+    ///                 lives on, and sending a notification to the callback
+    ///                 fails with \c hpx::error::locality_was_disconnected
+    ///                 (e.g. its locality was killed), the observer is
+    ///                 unregistered. Such a failure does not change the
+    ///                 lifecycle state recorded for \a target. Any other
+    ///                 delivery failure, including an exception thrown by
+    ///                 the callback itself, is recorded as \a target having
+    ///                 failed.
     HPX_CXX_EXPORT HPX_EXPORT hpx::future<hpx::id_type> register_observer(
         hpx::id_type const& locality, hpx::id_type const& target,
         lifecycle_callback const& callback,

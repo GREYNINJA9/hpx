@@ -337,10 +337,11 @@ namespace hpx::supervision::server {
             lifecycle_event_notification const& notification);
 
         // Delivers `notification` to the single per-target observer `agent`,
-        // if it is still registered. A delivery that fails because the
-        // observer's locality went away unregisters the observer and does
-        // not make the returned future exceptional; any other failure (e.g.
-        // the callback threw) does, so the caller can record_error() it.
+        // if it is still registered. If sending to a remote observer fails
+        // with locality_was_disconnected, or its locality was disconnected,
+        // the observer is unregistered and the returned future does not
+        // become exceptional. Any other failure (e.g. the callback threw,
+        // whatever the error) does, so the caller can record_error() it.
         hpx::future<void> fire_event(hpx::id_type const& target,
             hpx::id_type const& agent,
             lifecycle_event_notification notification);

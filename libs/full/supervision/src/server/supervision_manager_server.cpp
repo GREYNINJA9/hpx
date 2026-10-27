@@ -899,11 +899,24 @@ namespace hpx::supervision::server {
                     // target having failed, fencing a healthy target. Any
                     // other failure (e.g. the callback threw) is reported as
                     // before.
+                    //
+                    // A remote observer's callback runs on the observer's
+                    // locality, so an exception it throws carries that
+                    // locality's id, even if it is locality_was_disconnected
+                    // (say, from a remote call the callback made itself).
+                    // Only a failure raised here can come from sending to the
+                    // observer. A local observer cannot become unreachable.
+                    std::uint32_t const here = agas::get_locality_id();
                     std::uint32_t const agent_locality =
                         naming::get_locality_id_from_gid(agent.get_gid());
-                    if (hpx::get_error(e) ==
-                            hpx::error::locality_was_disconnected ||
-                        parcelset::locality_was_disconnected(agent_locality))
+                    bool const send_failed = hpx::get_error(e) ==
+                            hpx::error::locality_was_disconnected &&
+                        hpx::get_error_locality_id(e) == here;
+
+                    if (agent_locality != here &&
+                        (send_failed ||
+                            parcelset::locality_was_disconnected(
+                                agent_locality)))
                     {
                         keep_registered = false;
                     }

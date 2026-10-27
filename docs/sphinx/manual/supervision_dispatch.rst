@@ -459,11 +459,13 @@ mechanisms.
 
 The reverse case matters as well: the observers a joining locality
 registered live on the *peer's* locality, so they outlive the joining
-locality if it dies. The next notification the peer sends to such an
-observer fails because the joining locality is gone, and that unregisters
-the observer on the peer. The failure does not change the peer's own state,
-so the peer keeps admitting dispatch as before. A coordinator that joined
-all of its workers can therefore crash without fencing any of them.
+locality if it dies. When the peer next sends a notification to such an
+observer and the send fails with ``hpx::error::locality_was_disconnected``
+(or the joining locality was disconnected from the peer), the observer is
+unregistered on the peer, and the peer's own state is left alone, so it
+keeps admitting dispatch as before. A send that fails with any other error
+(for instance, a refused connection when the peer has to reconnect to the
+dead locality) is still recorded as the peer having failed, and fences it.
 
 Because ``observers_`` is keyed per target and holds a list rather than a
 single callback, this fan-out is genuinely one-to-many: if several
