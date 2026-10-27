@@ -21,8 +21,8 @@ set(supervision_await_terminal_shutdown_PARAMETERS THREADS_PER_LOCALITY 4)
 set(supervision_check_activity_PARAMETERS LOCALITIES 2 THREADS_PER_LOCALITY 4)
 set(supervision_check_admission_PARAMETERS THREADS_PER_LOCALITY 4)
 set(supervision_remove_target_PARAMETERS THREADS_PER_LOCALITY 4)
-set(supervision_tidy_remote_shutdown_PARAMETERS
-    LOCALITIES 2 THREADS_PER_LOCALITY 4
+set(supervision_tidy_remote_shutdown_PARAMETERS LOCALITIES 2
+                                                THREADS_PER_LOCALITY 4
 )
 set(supervision_tidy_teardown_PARAMETERS THREADS_PER_LOCALITY 4)
 
