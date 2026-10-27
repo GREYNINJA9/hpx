@@ -35,6 +35,20 @@ foreach(test ${tests})
   add_hpx_regression_test("modules.executors" ${test} ${${test}_PARAMETERS})
 endforeach()
 
+# needs 2 workers so that the parts of a function without a result are posted as
+# tasks too, with one worker they run inline
+add_hpx_executable(
+  hierarchical_spawning_7887_test INTERNAL_FLAGS
+  SOURCES hierarchical_spawning_7887.cpp
+  EXCLUDE_FROM_ALL
+  HPX_PREFIX ${HPX_BUILD_PREFIX}
+  FOLDER "Tests/Regressions/Modules/Core/Executors"
+)
+
+add_hpx_regression_test(
+  "modules.executors" hierarchical_spawning_7887 THREADS_PER_LOCALITY 2
+)
+
 if(HPX_WITH_COMPILE_ONLY_TESTS)
   set(compile_tests)
   if(HPX_WITH_CUDA OR HPX_WITH_HIP)
