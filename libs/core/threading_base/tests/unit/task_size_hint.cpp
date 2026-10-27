@@ -409,6 +409,10 @@ int hpx_main()
         hpx::execution::experimental::scheduler_executor(
             hpx::execution::experimental::thread_pool_scheduler{}),
         task_size::unknown);
+    test_scheduler_executor(
+        hpx::execution::experimental::explicit_scheduler_executor(
+            hpx::execution::experimental::thread_pool_scheduler{}),
+        task_size::small_);
 
     return hpx::local::finalize();
 }
