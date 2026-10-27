@@ -328,6 +328,68 @@ void test_executor_paths(task_size bulk_sync_with_executor_size)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// Waits for what an executor returns, a future or a sender.
+template <typename T>
+void wait_for(T&& t)
+{
+    if constexpr (hpx::traits::is_future_v<std::decay_t<T>>)
+        HPX_FORWARD(T, t).get();
+    else
+        hpx::this_thread::experimental::sync_wait(HPX_FORWARD(T, t));
+}
+
+// The scheduler based executors run the function inside a task of their
+// scheduler, so a size set on them reaches that task's thread, and the
+// function's size isn't seen. then_execute and bulk_then_execute go through
+// continues_on, which runs inline on an HPX thread, so they create none.
+template <typename Executor>
+void test_scheduler_executor_paths(
+    Executor const& exec, task_size size, task_size bulk_sync_size)
+{
+    namespace ex = hpx::parallel::execution;
+
+    auto const f = hpx::large_task([] { return 1; });
+    auto const then_f = hpx::large_task([](hpx::future<void>&& p) { p.get(); });
+    auto const bulk_f = hpx::large_task([](int) {});
+    auto const bulk_then_f = hpx::large_task([](int, auto&&...) {});
+
+    check_only_size(
+        [&] {
+            hpx::latch l(2);
+            ex::post(exec, hpx::large_task([&] { l.count_down(1); }));
+            l.arrive_and_wait();
+        },
+        size);
+    check_only_size([&] { ex::sync_execute(exec, f); }, size);
+    check_only_size([&] { wait_for(ex::async_execute(exec, f)); }, size);
+    check_only_size(
+        [&] {
+            wait_for(ex::then_execute(exec, then_f, hpx::make_ready_future()));
+        },
+        task_size::unknown);
+    check_only_size(
+        [&] { wait_for(ex::bulk_async_execute(exec, bulk_f, 16)); }, size);
+    check_only_size(
+        [&] { ex::bulk_sync_execute(exec, bulk_f, 16); }, bulk_sync_size);
+    check_only_size(
+        [&] {
+            wait_for(ex::bulk_then_execute(
+                exec, bulk_then_f, 16, hpx::make_ready_future().share()));
+        },
+        task_size::unknown);
+}
+
+template <typename Executor>
+void test_scheduler_executor(Executor const& exec, task_size bulk_sync_size)
+{
+    test_scheduler_executor_paths(
+        hpx::execution::experimental::with_hint(
+            exec, hpx::threads::thread_schedule_hint(task_size::small_)),
+        task_size::small_, bulk_sync_size);
+    test_scheduler_executor_paths(exec, task_size::unknown, task_size::unknown);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 int hpx_main()
 {
     test_function_sizes();
@@ -341,6 +403,12 @@ int hpx_main()
         task_size::unknown);
     test_executor_paths<hpx::execution::parallel_executor_spawn_hierarchically,
         false>(task_size::small_);
+
+    // With one worker, scheduler_executor's bulk_sync_execute runs inline.
+    test_scheduler_executor(
+        hpx::execution::experimental::scheduler_executor(
+            hpx::execution::experimental::thread_pool_scheduler{}),
+        task_size::unknown);
 
     return hpx::local::finalize();
 }
