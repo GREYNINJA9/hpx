@@ -513,12 +513,13 @@ void test_lru_free_large_sizes()
             HPX_TEST(c.holds_key(1));
         }
 
-        // reserve has to free 3 GiB, which takes both entries
+        // reserve has to free 3 GiB, which takes both entries whichever is
+        // evicted first
         {
             cache_type c(4 * gib);
 
-            HPX_TEST(c.insert(0, entry_type(0, 3 * gib)));
-            HPX_TEST(c.insert(1, entry_type(1, gib)));
+            HPX_TEST(c.insert(0, entry_type(0, 2 * gib)));
+            HPX_TEST(c.insert(1, entry_type(1, 2 * gib)));
             HPX_TEST(c.reserve(gib));
             HPX_TEST_EQ(static_cast<cache_type::size_type>(0), c.size());
         }
