@@ -41,8 +41,8 @@ if(HPX_WITH_FETCH_STDEXEC)
   set(_hpx_stdexec_diagnostics_nvcc_patch
       "${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecNvccDiagnostics.patch"
   )
-  set(_hpx_stdexec_sycl_atomic_patch
-      "${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecSyclAtomic.patch"
+  set(_hpx_stdexec_cuda_std_atomic_patch
+      "${CMAKE_CURRENT_LIST_DIR}/HPX_StdexecCudaStdAtomic.patch"
   )
 
   include(FetchContent)
@@ -81,7 +81,7 @@ if(HPX_WITH_FETCH_STDEXEC)
       "-DHPX_STDEXEC_PATCH_REQUIRED=${_hpx_stdexec_nvcc_patch_required}" -P
       ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake COMMAND
       ${CMAKE_COMMAND} "-DHPX_STDEXEC_SOURCE_DIR=<SOURCE_DIR>"
-      "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_sycl_atomic_patch}"
+      "-DHPX_STDEXEC_PATCH_FILE=${_hpx_stdexec_cuda_std_atomic_patch}"
       "-DHPX_STDEXEC_PATCH_REQUIRED=${HPX_WITH_SYCL}" -P
       ${CMAKE_CURRENT_LIST_DIR}/HPX_PatchStdexecNvcc.cmake
   )
@@ -100,9 +100,12 @@ if(HPX_WITH_FETCH_STDEXEC)
     # representation, so export it to both C++ and CUDA consumers.
     target_compile_definitions(Stdexec INTERFACE STDEXEC_DEMANGLE_SENDER_NAMES)
   endif()
-  if(HPX_WITH_SYCL)
-    # CUDA's atomic headers conflict with SYCL's __assert_fail declaration. Keep
-    # atomic types consistent across host-only, SYCL and consumer TUs.
+  if(NOT HPX_WITH_CUDA OR HPX_WITH_SYCL)
+    # stdexec uses cuda::std::atomic whenever <cuda/std/atomic> can be found.
+    # Without CUDA (HIP builds included), an old libcu++ in a default include
+    # directory then breaks the build (#7884); with SYCL, CUDA's atomic headers
+    # conflict with SYCL's __assert_fail declaration. Keep atomic types
+    # consistent across host-only, SYCL and consumer TUs.
     target_compile_definitions(Stdexec INTERFACE STDEXEC_NO_CUDA_STD_ATOMIC)
   endif()
 
