@@ -20,6 +20,7 @@
 
 #include <hpx/supervision/supervision_api.hpp>
 
+#include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
@@ -213,6 +214,10 @@ namespace hpx::supervision::server {
         /// reports an error and never fires any notification of its own for the
         /// "nothing to do" case. Local-only: unlike remove_target(), this is
         /// not exposed as a remote action.
+        ///
+        /// \note This is meant for teardown of this locality's supervision
+        ///       state at shutdown. After tidy() has been called, remote
+        ///       activity agents are no longer waited for or notified.
         void tidy();
 
         /// \brief Invalidates every pending await_terminal() waiter.
@@ -527,6 +532,10 @@ namespace hpx::supervision::server {
         hpx::spinlock sweep_timer_mtx_;
 
         mutable std::string instance_name_;
+
+        // Set once tidy() starts (it is only used for shutdown teardown);
+        // see fire_activity_event().
+        std::atomic<bool> tearing_down_{false};
 
         // registered events: targets -> states
         std::map<hpx::id_type, lifecycle_state> states_;
