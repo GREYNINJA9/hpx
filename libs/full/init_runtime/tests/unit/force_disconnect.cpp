@@ -4,15 +4,17 @@
 //  Distributed under the Boost Software License, Version 1.0. (See accompanying
 //  file LICENSE_1_0.txt or copy at http://www.boost.org/LICENSE_1_0.txt)
 
-// non-HPX thread, or trying to disconnect the console locality itself, both
-// fail with hpx::error::invalid_status, both through the error_code overload
-// and by throwing), as well as the happy path, where disconnecting a valid
-// remote locality succeeds and actually removes it from AGAS/the connection
-// caches while leaving the remaining localities unaffected. Calling
-// force_disconnect a second time on an already-disconnected locality does not
-// hang. Once a locality has been removed, the parcel layer remembers it as
-// disconnected, so force_disconnect rejects the gid with
-// hpx::error::bad_parameter before it attempts a second removal or blocks.
+// This test checks the error paths of hpx::force_disconnect (calling it from a
+// non-HPX thread fails with hpx::error::invalid_status, and trying to
+// disconnect the console locality itself fails with hpx::error::bad_parameter,
+// both through the error_code overload and by throwing), as well as the happy
+// path, where disconnecting a valid remote locality succeeds and actually
+// removes it from AGAS/the connection caches while leaving the remaining
+// localities unaffected. Calling force_disconnect a second time on an
+// already-disconnected locality does not hang. Once a locality has been
+// removed, the parcel layer remembers it as disconnected, so force_disconnect
+// rejects the gid with hpx::error::bad_parameter before it attempts a second
+// removal or blocks.
 //
 // Beyond that baseline, this test also covers: disconnecting a locality while
 // an action is still in flight to it; repeated connect/disconnect cycles across
