@@ -389,6 +389,21 @@ void test_scheduler_executor(Executor const& exec, task_size bulk_sync_size)
     test_scheduler_executor_paths(exec, task_size::unknown, task_size::unknown);
 }
 
+// fork_join_executor runs everything on worker threads it started when it was
+// created, so no call creates a thread that could carry a size.
+void test_fork_join_executor()
+{
+    namespace ex = hpx::parallel::execution;
+
+    hpx::execution::experimental::fork_join_executor exec;
+    auto bulk_f = hpx::large_task([](int i) { return i; });
+
+    check_only_size(
+        [&] { ex::bulk_sync_execute(exec, bulk_f, 16); }, task_size::unknown);
+    check_only_size([&] { ex::bulk_async_execute(exec, bulk_f, 16).get(); },
+        task_size::unknown);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 int hpx_main()
 {
@@ -413,6 +428,7 @@ int hpx_main()
         hpx::execution::experimental::explicit_scheduler_executor(
             hpx::execution::experimental::thread_pool_scheduler{}),
         task_size::small_);
+    test_fork_join_executor();
 
     return hpx::local::finalize();
 }
