@@ -104,10 +104,11 @@ main_readme() {
         "LSU (see \`.jenkins/lsu-perftests\` and \`tools/perftests_ci\` in" \
         "the HPX repository). The graphs below show the median time of every" \
         "measurement over the master commits in their order, labeled with" \
-        "their pull requests; lower is faster. The table below each graph" \
-        "lists the commits after which a median changed, the numbered" \
-        "commits are marked on the graph, and the ringed points are the" \
-        "medians that changed (red slower, green faster)."
+        "their pull requests (or the commits without one); lower is faster." \
+        "The table below each graph lists the commits after which a median" \
+        "changed, the numbered commits are marked on the graph, and the" \
+        "ringed points are the medians that changed (red slower, green" \
+        "faster)."
     echo
     echo "## Layout"
     echo

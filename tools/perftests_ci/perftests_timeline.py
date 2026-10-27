@@ -20,10 +20,11 @@
 # Below each graph, a table lists the commits after which a median moved by
 # more than --threshold percent (default 5) against the median of the runs of
 # the --window commits before it (default 3), so that a single noisy run
-# doesn't count as a change. On the graph, the points that moved are ringed
-# (red slower, green faster), and the --labels commits with the largest
-# changes (default 8) are marked with a dashed line and the number of their
-# rows in the table.
+# doesn't count as a change. The window doesn't reach back before the last
+# change of the same measurement, so that a step is listed once. On the graph,
+# the points that moved are ringed (red slower, green faster), and the
+# --labels commits with the largest changes (default 8) are marked with a
+# dashed line and the number of their rows in the table.
 #
 # The graphs are SVG, so that the repository, which gets new versions of all of
 # them with every run, stores only their differences. They are reproducible:
