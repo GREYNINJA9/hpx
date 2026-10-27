@@ -12,7 +12,8 @@
 //               so that the other workers have to steal them.
 //  The results depend on the placement of the scheduler's per-worker data in
 //  memory, so run this with many executions and on many cores. The steal
-//  case is skipped with a scheduler that does not steal.
+//  case is skipped with a scheduler that does not steal and with only one
+//  worker.
 
 #include <hpx/config.hpp>
 #include <hpx/chrono.hpp>
@@ -39,14 +40,15 @@ using hpx::program_options::variables_map;
 namespace {
 
     // The static schedulers do not steal: tasks placed on one worker stay
-    // there
+    // there. With only one worker there is no other worker to steal them.
     bool scheduler_steals()
     {
-        return hpx::threads::get_self_id_data()
-            ->get_scheduler_base()
-            ->has_scheduler_mode(
-                hpx::threads::policies::scheduler_mode::enable_stealing,
-                hpx::get_worker_thread_num());
+        return hpx::get_num_worker_threads() > 1 &&
+            hpx::threads::get_self_id_data()
+                ->get_scheduler_base()
+                ->has_scheduler_mode(
+                    hpx::threads::policies::scheduler_mode::enable_stealing,
+                    hpx::get_worker_thread_num());
     }
 
     void burn(std::uint64_t const ns)
@@ -103,7 +105,8 @@ int hpx_main(variables_map& vm)
     }
     else
     {
-        std::cerr << "the scheduler does not steal, skipping the steal case\n";
+        std::cerr << "the scheduler does not steal or runs only one worker, "
+                     "skipping the steal case\n";
     }
 
     hpx::util::perftests_print_times();

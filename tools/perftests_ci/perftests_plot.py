@@ -197,7 +197,11 @@ def plot_report(result_path, reference_path, output_prefix):
                 low, q1, q3, high = np.percentile(series, [1, 25, 75, 99])
                 low = max(low, q1 - 3 * (q3 - q1))
                 high = min(high, q3 + 3 * (q3 - q1))
-                values = series[(series >= low) & (series <= high)] * factor
+                values = series[(series >= low) & (series <= high)]
+                # a series of two values has both outside the percentiles
+                if len(values) == 0:
+                    values = series
+                values = values * factor
                 outside = len(series) - len(values)
                 if outside:
                     label = f"{label} ({outside} of {len(series)} not shown)"
@@ -210,14 +214,18 @@ def plot_report(result_path, reference_path, output_prefix):
                 plotted.insert(0, (baseline, "C0", label))
             # Common bins as narrow as the narrower of the bins each series
             # would get on its own, so that a series isn't a single bar if it
-            # lies far from the other one
+            # lies far from the other one. A constant series gets bins of
+            # width 1 (numpy widens its range to that), so only the other
+            # series count; if all are constant, the bins span all values.
             low = min(values.min() for values, _, _ in plotted)
             high = max(values.max() for values, _, _ in plotted)
-            width = min(np.diff(np.histogram_bin_edges(values, "auto"))[0]
-                for values, _, _ in plotted)
-            count = int(np.ceil((high - low) / width)) if width > 0 else 1
-            bins = np.linspace(low, high, max(1, min(count, 500)) + 1) \
-                if high > low else np.histogram_bin_edges(
+            widths = [np.diff(np.histogram_bin_edges(values, "auto"))[0]
+                for values, _, _ in plotted if values.max() > values.min()]
+            if high > low and widths:
+                count = int(np.ceil((high - low) / min(widths)))
+                bins = np.linspace(low, high, max(1, min(count, 500)) + 1)
+            else:
+                bins = np.histogram_bin_edges(
                     np.concatenate([values for values, _, _ in plotted]), "auto")
             # densities, as the baseline and the current run may have a
             # different number of values; the density estimate covers only
