@@ -161,7 +161,7 @@ def plot(benchmark, series, commits, position, args, path):
     shown = ordered[::step]
     ax.set_xticks([position[commit] for commit in shown])
     ax.set_xticklabels([commit_label(commit, commits) for commit in shown],
-        rotation=90, fontsize=6)
+        rotation=90, fontsize=7.5)
     ax.set_xlim(-0.5, len(ordered) - 0.5)
     dates = ax.secondary_xaxis('top')
     # the first commit of each day
@@ -170,7 +170,7 @@ def plot(benchmark, series, commits, position, args, path):
     dated = dated[::math.ceil(len(dated) / max_date_labels)]
     dates.set_xticks([position[commit] for commit in dated])
     dates.set_xticklabels(
-        [f"{commits[commit][1]:%Y-%m-%d}" for commit in dated], fontsize=6)
+        [f"{commits[commit][1]:%Y-%m-%d}" for commit in dated], fontsize=7.5)
     dates.tick_params(pad=8)
     ax.set_xlabel("master commit (pull request, or the commit without one)")
     ax.set_ylabel(f"median time [{unit}]")
