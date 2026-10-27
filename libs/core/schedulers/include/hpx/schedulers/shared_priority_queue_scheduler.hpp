@@ -290,7 +290,7 @@ namespace hpx::threads::policies {
             auto msg = spq_deb.declare_variable<char const*>(nullptr);
 
             using threads::thread_schedule_hint_mode;
-            switch (data.schedulehint.mode)
+            switch (data.schedulehint.mode())
             {
             case thread_schedule_hint_mode::none:
             {
@@ -397,7 +397,7 @@ namespace hpx::threads::policies {
                 HPX_THROW_EXCEPTION(hpx::error::bad_parameter,
                     "shared_priority_queue_scheduler::create_thread",
                     "Invalid schedule hint mode: {}",
-                    static_cast<std::size_t>(data.schedulehint.mode));
+                    static_cast<std::size_t>(data.schedulehint.mode()));
             }
 
             // we do not allow threads created on other queues to 'run now'
@@ -802,7 +802,7 @@ namespace hpx::threads::policies {
 
             using threads::thread_schedule_hint_mode;
 
-            switch (schedulehint.mode)
+            switch (schedulehint.mode())
             {
             case thread_schedule_hint_mode::none:
             {
@@ -898,7 +898,7 @@ namespace hpx::threads::policies {
                 HPX_THROW_EXCEPTION(hpx::error::bad_parameter,
                     "shared_priority_queue_scheduler::schedule_thread",
                     "Invalid schedule hint mode: {}",
-                    static_cast<std::size_t>(schedulehint.mode));
+                    static_cast<std::size_t>(schedulehint.mode()));
             }
 
             spq_deb.debug(debug::str<>("thread scheduled"), msg, "Thread",
