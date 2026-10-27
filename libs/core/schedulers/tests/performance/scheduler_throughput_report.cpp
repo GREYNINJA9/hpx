@@ -11,7 +11,8 @@
 //    steal:     the tasks are placed on worker 0 and run for --delay ns each,
 //               so that the other workers have to steal them.
 //  The results depend on the placement of the scheduler's per-worker data in
-//  memory, so run this with many executions and on many cores.
+//  memory, so run this with many executions and on many cores. The steal
+//  case is skipped with a scheduler that does not steal.
 
 #include <hpx/config.hpp>
 #include <hpx/chrono.hpp>
@@ -19,11 +20,13 @@
 #include <hpx/future.hpp>
 #include <hpx/init.hpp>
 #include <hpx/modules/testing.hpp>
+#include <hpx/modules/threading_base.hpp>
 #include <hpx/thread.hpp>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 #include <iterator>
 #include <stdexcept>
 #include <vector>
@@ -34,6 +37,17 @@ using hpx::program_options::variables_map;
 
 ///////////////////////////////////////////////////////////////////////////////
 namespace {
+
+    // The static schedulers do not steal: tasks placed on one worker stay
+    // there
+    bool scheduler_steals()
+    {
+        return hpx::threads::get_self_id_data()
+            ->get_scheduler_base()
+            ->has_scheduler_mode(
+                hpx::threads::policies::scheduler_mode::enable_stealing,
+                hpx::get_worker_thread_num());
+    }
 
     void burn(std::uint64_t const ns)
     {
@@ -81,9 +95,16 @@ int hpx_main(variables_map& vm)
         "parallel_executor", steps,
         [&] { spawn_and_wait(exec_self, tasks, [] {}); });
 
-    hpx::util::perftests_report("scheduler throughput - steal",
-        "parallel_executor", steps,
-        [&] { spawn_and_wait(exec_zero, tasks, [=] { burn(delay); }); });
+    if (scheduler_steals())
+    {
+        hpx::util::perftests_report("scheduler throughput - steal",
+            "parallel_executor", steps,
+            [&] { spawn_and_wait(exec_zero, tasks, [=] { burn(delay); }); });
+    }
+    else
+    {
+        std::cerr << "the scheduler does not steal, skipping the steal case\n";
+    }
 
     hpx::util::perftests_print_times();
 

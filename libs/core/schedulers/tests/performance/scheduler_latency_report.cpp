@@ -21,7 +21,9 @@
 //  The steps of the sparse, batch and loop cases have 100 or more rounds, so
 //  that a stall in 1% of the rounds shows up in most steps. The idle gaps of
 //  the burst and loop cases suspend the calling task; on systems with a
-//  coarse timer they last longer than requested.
+//  coarse timer they last longer than requested. The sparse, burst and
+//  batch cases need other workers to take tasks from the creating worker's
+//  queue; they are skipped with a scheduler that does not steal.
 
 #include <hpx/config.hpp>
 #include <hpx/algorithm.hpp>
@@ -30,12 +32,14 @@
 #include <hpx/init.hpp>
 #include <hpx/latch.hpp>
 #include <hpx/modules/testing.hpp>
+#include <hpx/modules/threading_base.hpp>
 #include <hpx/thread.hpp>
 
 #include <atomic>
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <iostream>
 
 using hpx::program_options::options_description;
 using hpx::program_options::value;
@@ -43,6 +47,17 @@ using hpx::program_options::variables_map;
 
 ///////////////////////////////////////////////////////////////////////////////
 namespace {
+
+    // The static schedulers do not steal: tasks placed on one worker stay
+    // there
+    bool scheduler_steals()
+    {
+        return hpx::threads::get_self_id_data()
+            ->get_scheduler_base()
+            ->has_scheduler_mode(
+                hpx::threads::policies::scheduler_mode::enable_stealing,
+                hpx::get_worker_thread_num());
+    }
 
     std::uint64_t now_ns()
     {
@@ -148,15 +163,23 @@ int hpx_main(variables_map& vm)
     // let the runtime settle, all workers go idle
     hpx::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    hpx::util::perftests_report("scheduler latency - sparse", "post", steps,
-        [gap = vm["sparse-gap"].as<std::uint64_t>()] { sparse(200, gap); });
+    if (scheduler_steals())
+    {
+        hpx::util::perftests_report("scheduler latency - sparse", "post", steps,
+            [gap = vm["sparse-gap"].as<std::uint64_t>()] { sparse(200, gap); });
 
-    hpx::util::perftests_report("scheduler latency - burst", "post", steps,
-        [gap = vm["burst-gap"].as<std::uint64_t>()] { burst(10, gap); });
+        hpx::util::perftests_report("scheduler latency - burst", "post", steps,
+            [gap = vm["burst-gap"].as<std::uint64_t>()] { burst(10, gap); });
 
-    hpx::util::perftests_report("scheduler latency - batch",
-        "parallel_executor", steps,
-        [gap = vm["batch-gap"].as<std::uint64_t>()] { batch(100, gap); });
+        hpx::util::perftests_report("scheduler latency - batch",
+            "parallel_executor", steps,
+            [gap = vm["batch-gap"].as<std::uint64_t>()] { batch(100, gap); });
+    }
+    else
+    {
+        std::cerr << "the scheduler does not steal, skipping the sparse, "
+                     "burst and batch cases\n";
+    }
 
     hpx::util::perftests_report("scheduler latency - loop", "par", steps,
         [gap = vm["loop-gap"].as<std::uint64_t>()] { loop(100, gap); });

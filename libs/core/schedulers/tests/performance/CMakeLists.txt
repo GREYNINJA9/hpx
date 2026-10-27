@@ -9,9 +9,9 @@ set(benchmarks scheduler_latency_report scheduler_throughput_report)
 set(scheduler_latency_report_PARAMETERS THREADS_PER_LOCALITY 4)
 set(scheduler_throughput_report_PARAMETERS THREADS_PER_LOCALITY 4)
 
-# The reports run on 20 cores, where the placement of the scheduler's
-# per-worker data and the waking of idle workers matter most. Each execution is
-# a new process with a new heap layout.
+# The reports run on 20 cores, where the placement of the scheduler's per-worker
+# data and the waking of idle workers matter most. Each execution is a new
+# process with a new heap layout.
 # cmake-format: off
 set(scheduler_latency_report_perftest_PARAMETERS
     THREADS_PER_LOCALITY 20
