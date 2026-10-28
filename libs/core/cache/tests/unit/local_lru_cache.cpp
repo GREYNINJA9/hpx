@@ -8,6 +8,7 @@
 #include <hpx/modules/testing.hpp>
 
 #include <cstddef>
+#include <functional>
 #include <string>
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -549,6 +550,26 @@ void test_entry_eviction_order()
         HPX_TEST(c.holds_key(2));
     }
 
+    // with std::greater, size_entry discards the smallest entries first
+    {
+        using entry_type = hpx::util::cache::entries::size_entry<int>;
+        using cache_type = hpx::util::cache::local_cache<int, entry_type,
+            std::greater<entry_type>>;
+
+        cache_type c(10);
+
+        HPX_TEST(c.insert(0, entry_type(0, 2)));
+        HPX_TEST(c.insert(1, entry_type(1, 5)));
+        HPX_TEST(c.insert(2, entry_type(2, 3)));
+
+        // shrinking to 8 has to free 2, the smallest entry is enough
+        HPX_TEST(c.reserve(8));
+        HPX_TEST_EQ(static_cast<cache_type::size_type>(8), c.size());
+        HPX_TEST(!c.holds_key(0));
+        HPX_TEST(c.holds_key(1));
+        HPX_TEST(c.holds_key(2));
+    }
+
     // lfu_entry discards the least frequently used entries first
     {
         using entry_type = hpx::util::cache::entries::lfu_entry<int>;
@@ -573,6 +594,34 @@ void test_entry_eviction_order()
         HPX_TEST(c.holds_key(0));
         HPX_TEST(c.holds_key(1));
         HPX_TEST(!c.holds_key(2));
+    }
+
+    // with std::greater, lfu_entry discards the most frequently used entries
+    // first
+    {
+        using entry_type = hpx::util::cache::entries::lfu_entry<int>;
+        using cache_type = hpx::util::cache::local_cache<int, entry_type,
+            std::greater<entry_type>>;
+
+        cache_type c(3);
+
+        HPX_TEST(c.insert(0, 0));
+        HPX_TEST(c.insert(1, 1));
+        HPX_TEST(c.insert(2, 2));
+
+        // key 0 is used most often, key 2 not at all
+        int value = 0;
+        for (int i = 0; i != 3; ++i)
+        {
+            HPX_TEST(c.get_entry(0, value));
+        }
+        HPX_TEST(c.get_entry(1, value));
+
+        HPX_TEST(c.reserve(2));
+        HPX_TEST_EQ(static_cast<cache_type::size_type>(2), c.size());
+        HPX_TEST(!c.holds_key(0));
+        HPX_TEST(c.holds_key(1));
+        HPX_TEST(c.holds_key(2));
     }
 }
 
