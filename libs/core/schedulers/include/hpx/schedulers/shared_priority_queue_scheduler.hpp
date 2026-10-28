@@ -936,6 +936,14 @@ namespace hpx::threads::policies {
                           .queue_index_;
 
             std::size_t this_thread = local_thread_number();
+
+            // If the last reference was dropped by an external thread or the main thread,
+            // safely fallback to worker 0 to perform the cleanup.
+            if (this_thread >= num_workers_)
+            {
+                this_thread = 0;
+            }
+
             HPX_ASSERT(this_thread < num_workers_);
 
             auto d2 = d_lookup_[this_thread];
