@@ -79,13 +79,38 @@ namespace hpx::lcos::local::detail {
             else if (e_.resuming_.load(std::memory_order_acquire))
             {
                 // The notifying thread is still resuming this thread (it
-                // doesn't need the lock for that).
-                unlock_guard<std::unique_lock<mutex_type>> ul(lock_);
-                util::yield_while(
-                    [&] {
-                        return e_.resuming_.load(std::memory_order_acquire);
-                    },
-                    "condition_variable::reset_queue_entry");
+                // doesn't need the lock for that). Yielding is an interruption
+                // point, which must not throw from this destructor: keep
+                // waiting and request the interruption again afterwards.
+                bool interrupted = false;
+                {
+                    unlock_guard<std::unique_lock<mutex_type>> ul(lock_);
+                    while (true)
+                    {
+                        try
+                        {
+                            util::yield_while(
+                                [&] {
+                                    return e_.resuming_.load(
+                                        std::memory_order_relaxed);
+                                },
+                                "condition_variable::reset_queue_entry");
+                            break;
+                        }
+                        catch (hpx::thread_interrupted const&)
+                        {
+                            interrupted = true;
+                        }
+                    }
+
+                    // pairs with the notifying thread's release of the flag
+                    std::atomic_thread_fence(std::memory_order_acquire);
+                }
+
+                if (interrupted)
+                {
+                    threads::get_self_id_data()->request_interruption();
+                }
             }
         }
 
