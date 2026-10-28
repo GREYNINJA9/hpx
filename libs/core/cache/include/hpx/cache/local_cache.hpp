@@ -1,4 +1,4 @@
-//  Copyright (c) 2007-2025 Hartmut Kaiser
+//  Copyright (c) 2007-2026 Hartmut Kaiser
 //
 //  SPDX-License-Identifier: BSL-1.0
 //  Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -189,7 +189,7 @@ namespace hpx::util::cache {
             // the new max size
             bool retval = true;
             if (max_size && max_size < current_size_ &&
-                !free_space(static_cast<long>(current_size_ - max_size)))
+                !free_space(current_size_ - max_size))
             {
                 retval = false;    // not able to shrink cache
             }
@@ -420,8 +420,7 @@ namespace hpx::util::cache {
             // make sure cache doesn't get too large
             size_type entry_size = e.get_size();
             if (0 != max_size_ && current_size_ + entry_size > max_size_ &&
-                !free_space(
-                    static_cast<long>(current_size_ - max_size_ + entry_size)))
+                !free_space(current_size_ - max_size_ + entry_size))
             {
                 return false;
             }
@@ -633,8 +632,8 @@ namespace hpx::util::cache {
                     entry_heap_.begin(), entry_heap_.end(), update_policy_);
                 current_size_ -= old_size;
 
-                bool const freed = free_space(
-                    static_cast<long>(current_size_ + new_size - max_size_));
+                bool const freed =
+                    free_space(current_size_ + new_size - max_size_);
 
                 entry_heap_.push_back(it);
                 current_size_ += old_size;
@@ -776,15 +775,15 @@ namespace hpx::util::cache {
 
     protected:
         ///////////////////////////////////////////////////////////////////////
-        // Free some space in the cache
-        bool free_space(long num_free)
+        // Free at least num_free of the cache's size by evicting entries
+        bool free_space(size_type num_free)
         {
             if (entry_heap_.empty())
                 return false;
 
             bool is_heap = true;
             for (heap_iterator it = entry_heap_.begin();
-                num_free > 0 && it != entry_heap_.end();
+                num_free != 0 && it != entry_heap_.end();
                 /**/)
             {
                 iterator sit = *it;
@@ -817,7 +816,7 @@ namespace hpx::util::cache {
 
                     // remove the cache entry
                     store_.erase(sit);
-                    num_free -= static_cast<long>(entry_size);
+                    num_free -= (std::min) (num_free, entry_size);
                     current_size_ -= entry_size;
 
                     // update statistics
@@ -832,7 +831,7 @@ namespace hpx::util::cache {
                     entry_heap_.begin(), entry_heap_.end(), update_policy_);
             }
 
-            return num_free <= 0;
+            return num_free == 0;
         }
 
     private:

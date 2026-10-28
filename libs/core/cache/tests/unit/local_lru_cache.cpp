@@ -1,4 +1,4 @@
-//  Copyright (c) 2008-2025 Hartmut Kaiser
+//  Copyright (c) 2008-2026 Hartmut Kaiser
 //
 //  SPDX-License-Identifier: BSL-1.0
 //  Distributed under the Boost Software License, Version 1.0. (See accompanying
@@ -479,6 +479,54 @@ void test_update_entry_size_no_room()
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+// sizes to free beyond 2 GiB, which don't fit into a 32-bit long (as on 64-bit
+// Windows)
+void test_lru_free_large_sizes()
+{
+    using entry_type = hpx::util::cache::entries::size_entry<int>;
+    using cache_type = hpx::util::cache::local_cache<int, entry_type>;
+
+    if constexpr (sizeof(std::size_t) >= 8)
+    {
+        constexpr std::size_t gib = std::size_t(1) << 30;
+
+        // insert has to free 2 GiB
+        {
+            cache_type c(4 * gib);
+
+            HPX_TEST(c.insert(0, entry_type(0, 3 * gib)));
+            HPX_TEST(c.insert(1, entry_type(1, 3 * gib)));
+            HPX_TEST_EQ(3 * gib, c.size());
+            HPX_TEST(!c.holds_key(0));
+            HPX_TEST(c.holds_key(1));
+        }
+
+        // update has to free 2 GiB
+        {
+            cache_type c(4 * gib);
+
+            HPX_TEST(c.insert(0, entry_type(0, 3 * gib)));
+            HPX_TEST(c.insert(1, entry_type(1, gib)));
+            HPX_TEST(c.update(1, entry_type(11, 3 * gib)));
+            HPX_TEST_EQ(3 * gib, c.size());
+            HPX_TEST(!c.holds_key(0));
+            HPX_TEST(c.holds_key(1));
+        }
+
+        // reserve has to free 3 GiB, which takes both entries whichever is
+        // evicted first
+        {
+            cache_type c(4 * gib);
+
+            HPX_TEST(c.insert(0, entry_type(0, 2 * gib)));
+            HPX_TEST(c.insert(1, entry_type(1, 2 * gib)));
+            HPX_TEST(c.reserve(gib));
+            HPX_TEST_EQ(static_cast<cache_type::size_type>(0), c.size());
+        }
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
 int main()
 {
     test_lru_insert();
@@ -491,6 +539,7 @@ int main()
     test_lru_insert_oversize_entry();
     test_update_entry_size();
     test_update_entry_size_no_room();
+    test_lru_free_large_sizes();
 
     return hpx::util::report_errors();
 }
