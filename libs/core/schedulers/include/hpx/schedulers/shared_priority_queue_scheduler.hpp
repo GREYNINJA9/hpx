@@ -936,10 +936,11 @@ namespace hpx::threads::policies {
                           .queue_index_;
 
             std::size_t this_thread = local_thread_number();
+            bool const is_external = this_thread >= num_workers_;
 
             // If the last reference was dropped by an external thread or the main thread,
             // safely fallback to worker 0 to perform the cleanup.
-            if (this_thread >= num_workers_)
+            if (is_external)
             {
                 this_thread = 0;
             }
@@ -948,7 +949,7 @@ namespace hpx::threads::policies {
 
             auto d2 = d_lookup_[this_thread];
             auto q2 = q_lookup_[this_thread];
-            bool xthread = ((q1 != q2) || (d1 != d2));
+            bool const xthread = is_external || (q1 != q2) || (d1 != d2);
             spq_deb.debug(debug::str<>("destroy_thread"), "xthread", xthread,
                 "task owned by", "D", debug::dec<2>(d1), "Q", debug::dec<3>(q1),
                 "this thread", "D", debug::dec<2>(d2), "Q", debug::dec<3>(q2),
