@@ -418,9 +418,12 @@ namespace hpx::parcelset {
         // Cache specific functionality
         void remove_from_connection_cache_delayed(locality const& loc)
         {
+            // connections may still be checked out while operations are in
+            // flight, try again later (clear the entry now only if that can't
+            // be scheduled)
             if (operations_in_flight_ != 0)
             {
-                if (!connection_handler().reschedule_on_thread(
+                if (connection_handler().reschedule_on_thread(
                         util::deferred_call(
                             &parcelport_impl::remove_from_connection_cache,
                             this, loc),
@@ -992,21 +995,29 @@ namespace hpx::parcelset {
             std::shared_ptr<connection> sender_connection)
         {
             HPX_ASSERT(operations_in_flight_ != 0);
-            --operations_in_flight_;
 
 #if defined(HPX_TRACK_STATE_OF_OUTGOING_TCP_CONNECTION)
             sender_connection->set_state(connection::state_scheduled_thread);
 #endif
-            if (!ec)
             {
-                // Give this connection back to the cache as it's not
-                // needed anymore.
-                connection_cache_.reclaim(locality_id, sender_connection);
-            }
-            else
-            {
-                // remove this connection from cache
-                connection_cache_.clear(locality_id, sender_connection);
+                // The operation ends only once the connection is back in the
+                // cache: remove_from_connection_cache() clears the cache entry
+                // as soon as no operations are in flight, which fails while a
+                // connection is still checked out.
+                auto finish_operation = hpx::experimental::scope_exit(
+                    [this] { --operations_in_flight_; });
+
+                if (!ec)
+                {
+                    // Give this connection back to the cache as it's not
+                    // needed anymore.
+                    connection_cache_.reclaim(locality_id, sender_connection);
+                }
+                else
+                {
+                    // remove this connection from cache
+                    connection_cache_.clear(locality_id, sender_connection);
+                }
             }
 
             {
