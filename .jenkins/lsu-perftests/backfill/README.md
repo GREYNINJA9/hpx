@@ -72,13 +72,13 @@ mkdir -p $PERFTEST_BACKFILL_DIR
 ```
 
 `commits.txt` holds full commit hashes, one per line, oldest first. Without
-`<since>`, `missing_commits.sh` starts after the oldest run of `runs.tsv` and
-lists every commit after it without a run, which needs the clone (after the
-first run of `backfill.sh`). A `<since>` must be a commit after which no run
-is missing: `runs.tsv` (in hpx-performance) lists the runs in the order they
-were added, not by commit, so its last commit can have older gaps. Check the
-list: the first parents of master are its merges, plus any commits pushed to
-master directly.
+`<since>`, `missing_commits.sh` starts after the earliest commit of master
+that has a run in `runs.tsv` and lists every commit after it without a run,
+which needs the clone (after the first run of `backfill.sh`). A `<since>`
+must be a commit before the gaps to fill: `runs.tsv` (in hpx-performance)
+lists the runs in the order they were added, not by commit, so its last
+commit can have older gaps. Check the list: the first parents of master are
+its merges, plus any commits pushed to master directly.
 
 To add more commits later, append them to `commits.txt`: commits already in
 the history are skipped.

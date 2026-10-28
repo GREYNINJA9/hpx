@@ -8,9 +8,10 @@
 
 # Prints the master commits (the first parents, oldest first) after <since>
 # that are not in runs.tsv of the clone of backfill.sh, as commits.txt wants
-# them. <since> defaults to the commit of the oldest run in runs.tsv (by
-# commit date): the runs are not added in commit order, and a commit whose
-# run failed can be older than the last run, so starting there would miss it.
+# them. <since> defaults to the earliest commit of master's first parents
+# that has a run in runs.tsv: the runs are not added in commit order, and a
+# commit whose run failed can be older than the last run, so starting there
+# would miss it (nor are the commit dates in first-parent order).
 #
 # Usage: missing_commits.sh [<since> [<master, default origin/master>]]
 #
@@ -19,12 +20,17 @@ set -euo pipefail
 base="${PERFTEST_BACKFILL_DIR:?the work directory}"
 runs=${base}/upload/data/runs.tsv
 hpx="$(cd "$(dirname "$0")/../../.." && pwd)"
-since="${1:-$(tail -n +2 "${runs}" 2> /dev/null | sort | head -1 | cut -f2 || true)}"
-if [[ -z "${since}" || "${since}" == commit ]]; then
-    echo "no <since> commit given and no run in ${runs}" >&2
+master="${2:-origin/master}"
+since="${1:-}"
+if [[ -z "${since}" && -s "${runs}" ]]; then
+    since=$(awk -F'\t' 'NR == FNR { if (FNR > 1) run[$2] = 1; next }
+        $1 in run { print; exit }' "${runs}" \
+        <(git -C "${hpx}" log --first-parent --reverse --format=%H "${master}"))
+fi
+if [[ -z "${since}" ]]; then
+    echo "no <since> commit given and no run of ${master} in ${runs}" >&2
     exit 1
 fi
-master="${2:-origin/master}"
 git -C "${hpx}" log --first-parent --reverse --format=%H "${since}..${master}" |
     while read -r commit; do
         grep -q "	${commit}	" "${runs}" || echo "${commit}"

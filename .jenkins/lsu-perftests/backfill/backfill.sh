@@ -91,6 +91,15 @@ if grep -q 'mktemp\|push\|git_history clone\|dirname "\$0"' "${gen}/upload-local
     exit 1
 fi
 
+# Whether the reports in $1 have every file the upload reads
+# (perftests_record.py writes them one after the other)
+recorded() {
+    local f
+    for f in metadata.json summary.json path.txt intro.md run.tsv; do
+        [[ -s "$1/history/${f}" ]] || return 1
+    done
+}
+
 # Adds the run of the reports in $1 to upload/data, the log in $2
 add_reports() {
     local reports=$1 upload_log=$2
@@ -121,7 +130,7 @@ while read -r commit; do
         continue
     fi
     kept=$(ls -d "${base}"/runs/*-"${short}"/perftests-reports 2> /dev/null | tail -1)
-    if [[ -n "${kept}" && -s "${kept}/history/path.txt" ]]; then
+    if [[ -n "${kept}" ]] && recorded "${kept}"; then
         log "[${n}/${total}] ${short}: reports kept in ${kept%/perftests-reports}"
         add_reports "${kept}" "${kept%/perftests-reports}/upload.log"
         continue
@@ -179,7 +188,7 @@ while read -r commit; do
         "${src}"/jenkins-hpx-perftests-*.txt "${src}/perftests-reports" \
         "${run_dir}" 2> /dev/null
 
-    if [[ ! -s "${run_dir}/perftests-reports/history/path.txt" ]]; then
+    if ! recorded "${run_dir}/perftests-reports"; then
         log "[${n}/${total}] ${short}: the run wasn't recorded, not added"
         continue
     fi
