@@ -13,11 +13,11 @@
 # Usage: missing_commits.sh [<since> [<master, default origin/master>]]
 #
 # With PERFTEST_BACKFILL_DIR as for backfill.sh. See README.md.
-set -eu
+set -euo pipefail
 base="${PERFTEST_BACKFILL_DIR:?the work directory}"
 runs=${base}/upload/data/runs.tsv
 hpx="$(cd "$(dirname "$0")/../../.." && pwd)"
-since="${1:-$(tail -1 "${runs}" 2> /dev/null | cut -f2)}"
+since="${1:-$(tail -1 "${runs}" 2> /dev/null | cut -f2 || true)}"
 if [[ -z "${since}" || "${since}" == commit ]]; then
     echo "no <since> commit given and no run in ${runs}" >&2
     exit 1
