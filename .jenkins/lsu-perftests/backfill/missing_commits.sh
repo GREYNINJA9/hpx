@@ -8,7 +8,9 @@
 
 # Prints the master commits (the first parents, oldest first) after <since>
 # that are not in runs.tsv of the clone of backfill.sh, as commits.txt wants
-# them. <since> defaults to the commit of the last run in runs.tsv.
+# them. <since> defaults to the commit of the oldest run in runs.tsv (by
+# commit date): the runs are not added in commit order, and a commit whose
+# run failed can be older than the last run, so starting there would miss it.
 #
 # Usage: missing_commits.sh [<since> [<master, default origin/master>]]
 #
@@ -17,7 +19,7 @@ set -euo pipefail
 base="${PERFTEST_BACKFILL_DIR:?the work directory}"
 runs=${base}/upload/data/runs.tsv
 hpx="$(cd "$(dirname "$0")/../../.." && pwd)"
-since="${1:-$(tail -1 "${runs}" 2> /dev/null | cut -f2 || true)}"
+since="${1:-$(tail -n +2 "${runs}" 2> /dev/null | sort | head -1 | cut -f2 || true)}"
 if [[ -z "${since}" || "${since}" == commit ]]; then
     echo "no <since> commit given and no run in ${runs}" >&2
     exit 1

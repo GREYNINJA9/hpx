@@ -14,7 +14,9 @@
 # (push.sh pushes). No Jenkins build: BUILD_NUMBER is unset (the directories
 # of the runs end in -b0), the build line of each run's README says it ran
 # outside Jenkins. Commits already in runs.tsv are skipped, so the script can
-# be run again with the same list.
+# be run again with the same list. A commit whose reports an earlier start
+# kept in runs/ (for example a run committed but not pushed before the clone
+# was replaced) is added again from them, without running the benchmarks.
 #
 # The benchmarks and the lane scripts are those of each commit. The reports
 # and the history are drawn by perftests_plot.py, perftests_timeline.py and
@@ -89,6 +91,25 @@ if grep -q 'mktemp\|push\|git_history clone\|dirname "\$0"' "${gen}/upload-local
     exit 1
 fi
 
+# Adds the run of the reports in $1 to upload/data, the log in $2
+add_reports() {
+    local reports=$1 upload_log=$2
+    sed -i 's/^Jenkins build unknown, ran on /Ran outside Jenkins with the steps of the lane (without the CDash submits) on /' \
+        "${reports}/history/intro.md"
+    grep -q '^Ran outside Jenkins' "${reports}/history/intro.md" ||
+        log "[${n}/${total}] ${short}: build line of intro.md not reworded"
+    log "[${n}/${total}] ${short}: adding $(cat "${reports}/history/path.txt")"
+    if "${gen}/upload-local.sh" "${reports}" > "${upload_log}" 2>&1; then
+        log "[${n}/${total}] ${short}: added, $(git -C "${base}/upload/data" log -1 --format='%h %s')"
+    else
+        log "[${n}/${total}] ${short}: adding failed, see ${upload_log}"
+        # upload_history.sh adds the run to runs.tsv before it commits: drop
+        # what it left, or the next start would skip this commit
+        git -C "${base}/upload/data" reset --quiet --hard HEAD
+        git -C "${base}/upload/data" clean --quiet -fd
+    fi
+}
+
 total=$(grep -c . "${base}/commits.txt")
 n=0
 while read -r commit; do
@@ -97,6 +118,12 @@ while read -r commit; do
     run_dir=${base}/runs/$(printf %02d "${n}")-${short}
     if grep -q "	${commit}	" "${base}/upload/data/runs.tsv" 2> /dev/null; then
         log "[${n}/${total}] ${short}: already in runs.tsv, skipped"
+        continue
+    fi
+    kept=$(ls -d "${base}"/runs/*-"${short}"/perftests-reports 2> /dev/null | tail -1)
+    if [[ -n "${kept}" && -s "${kept}/history/path.txt" ]]; then
+        log "[${n}/${total}] ${short}: reports kept in ${kept%/perftests-reports}"
+        add_reports "${kept}" "${kept%/perftests-reports}/upload.log"
         continue
     fi
 
@@ -145,31 +172,17 @@ while read -r commit; do
     log "[${n}/${total}] ${short}: srun ${rc}, status" \
         "$(cat "${src}/jenkins-hpx-perftests-ctest-status.txt" 2> /dev/null || echo none)"
 
+    # an earlier start's output of a run that wasn't recorded
+    rm -rf "${run_dir:?}"
     mkdir -p "${run_dir}"
     cp -r "${src}"/jenkins-hpx-perftests.out "${src}"/jenkins-hpx-perftests.err \
         "${src}"/jenkins-hpx-perftests-*.txt "${src}/perftests-reports" \
         "${run_dir}" 2> /dev/null
 
-    intro=${src}/perftests-reports/history/intro.md
-    if [[ ! -s "${src}/perftests-reports/history/path.txt" ]]; then
+    if [[ ! -s "${run_dir}/perftests-reports/history/path.txt" ]]; then
         log "[${n}/${total}] ${short}: the run wasn't recorded, not added"
         continue
     fi
-    sed -i 's/^Jenkins build unknown, ran on /Ran outside Jenkins with the steps of the lane (without the CDash submits) on /' \
-        "${intro}"
-    grep -q '^Ran outside Jenkins' "${intro}" ||
-        log "[${n}/${total}] ${short}: build line of intro.md not reworded"
-
-    log "[${n}/${total}] ${short}: adding $(cat "${src}/perftests-reports/history/path.txt")"
-    if (cd "${src}" && "${gen}/upload-local.sh" perftests-reports) \
-        > "${run_dir}/upload.log" 2>&1; then
-        log "[${n}/${total}] ${short}: added, $(git -C "${base}/upload/data" log -1 --format='%h %s')"
-    else
-        log "[${n}/${total}] ${short}: adding failed, see ${run_dir}/upload.log"
-        # upload_history.sh adds the run to runs.tsv before it commits: drop
-        # what it left, or the next start would skip this commit
-        git -C "${base}/upload/data" reset --quiet --hard HEAD
-        git -C "${base}/upload/data" clean --quiet -fd
-    fi
+    add_reports "${run_dir}/perftests-reports" "${run_dir}/upload.log"
 done < "${base}/commits.txt"
 log "done"
