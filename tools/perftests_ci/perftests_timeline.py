@@ -77,9 +77,9 @@ def time_unit(seconds):
 
 
 def read_timeline(path):
-    # Returns the benchmarks, each with its series of points (commit, median),
-    # and the commits of all runs: commit -> (first parent count, date, pull
-    # request, directory of a run of it)
+    # Returns the benchmarks, each with its series of points (commit, median,
+    # directory of the run), and the commits of all runs: commit -> (first
+    # parent count, date, pull request)
     benchmarks = {}
     commits = {}
     with open(path, newline='') as f:
@@ -92,11 +92,12 @@ def read_timeline(path):
                 continue
             commit = row['commit']
             commits.setdefault(commit, (count, when,
-                row.get('pull_request', ''), row.get('directory', '')))
+                row.get('pull_request', '')))
             series = benchmarks.setdefault(row['benchmark'], {})
             # Several nodes only get a line of their own if there are several
             key = (row['name'], row['executor'], row['node'])
-            series.setdefault(key, []).append((commit, median))
+            series.setdefault(key, []).append(
+                (commit, median, row.get('directory', '')))
     return benchmarks, commits
 
 
@@ -107,28 +108,29 @@ def commit_label(commit, commits):
 
 def changes(series, position, threshold, window):
     # The points whose median moved by more than threshold against the median
-    # of the window points before it: (position, key, median, change). After a
-    # change, the points are compared only with those from the change on, so
-    # that a step is listed once, and not again for the points after it whose
-    # window still reaches back before it.
+    # of the window points before it: (position, key, median, change,
+    # directory of the run). After a change, the points are compared only
+    # with those from the change on, so that a step is listed once, and not
+    # again for the points after it whose window still reaches back before
+    # it.
     found = []
     for key, points in series.items():
         points = sorted(points, key=lambda point: position[point[0]])
         start = 0
         for i in range(1, len(points)):
             before = statistics.median(
-                median for _, median in points[max(start, i - window):i])
-            commit, median = points[i]
+                median for _, median, _ in points[max(start, i - window):i])
+            commit, median, directory = points[i]
             change = median / before - 1 if before > 0 else 0
             if abs(change) > threshold:
-                found.append((position[commit], key, median, change))
+                found.append((position[commit], key, median, change, directory))
                 start = i
     return found
 
 
 def plot(benchmark, series, commits, position, args, path):
     nodes = {node for _, _, node in series}
-    medians = [median for points in series.values() for _, median in points]
+    medians = [median for points in series.values() for _, median, _ in points]
     unit, factor = time_unit(min(medians))
 
     fig, ax = plt.subplots(figsize=(graph_width, 4))
@@ -137,19 +139,19 @@ def plot(benchmark, series, commits, position, args, path):
         label = f"{name} ({executor})"
         if len(nodes) > 1:
             label += f", {node}"
-        ax.plot([position[commit] for commit, _ in points],
-            [median * factor for _, median in points],
+        ax.plot([position[commit] for commit, _, _ in points],
+            [median * factor for _, median, _ in points],
             marker='o', markersize=3, linewidth=1, label=label)
 
     # The points that moved, and the commits with the largest changes, numbered
     # from left to right
     moved = changes(series, position, args.threshold / 100, args.window)
-    for x, _, median, change in moved:
+    for x, _, median, change, _ in moved:
         ax.scatter([x], [median * factor], s=60, facecolors='none',
             edgecolors='tab:red' if change > 0 else 'tab:green',
             linewidths=1.2, zorder=3)
     largest = {}
-    for x, _, _, change in moved:
+    for x, _, _, change, _ in moved:
         largest[x] = max(largest.get(x, 0), abs(change))
     labeled = sorted(sorted(largest, key=lambda x: (-largest[x], x))
         [:args.labels])
@@ -195,32 +197,35 @@ def plot(benchmark, series, commits, position, args, path):
 
 def changes_table(moved, numbers, commits, by_position, several_nodes, args):
     # The table of the changes below a graph, one row per measurement that
-    # moved, grouped by commit from the newest to the oldest. The links to the
-    # runs are relative to the output directory (timeline/).
+    # moved, grouped by commit from the newest to the oldest, and by run for
+    # several runs of a commit (several nodes). The links to the runs are
+    # relative to the output directory (timeline/).
+    window = (f"the median of up to {args.window} runs before it, not "
+        "reaching back past the last change")
     if not moved:
         return (f"No median moved by more than {args.threshold:g}% against "
-            f"the median of the {args.window} runs before it.\n")
+            f"{window}.\n")
     lines = [f"Medians that moved by more than {args.threshold:g}% against "
-        f"the median of the {args.window} runs before them (+ is slower); "
-        "the numbers are those on the graph.", "",
+        f"{window} (+ is slower); the numbers are those on the graph.", "",
         "| # | Commit | Pull request | Measurement | Change |",
         "| --- | --- | --- | --- | --- |"]
-    last = None
-    for x, (name, executor, node), _, change in sorted(moved,
-            key=lambda m: (-m[0], m[1])):
+    last = (None, None)
+    for x, (name, executor, node), _, change, directory in sorted(moved,
+            key=lambda m: (-m[0], m[4], m[1])):
         commit = by_position[x]
         case = f"{name} ({executor})"
         if several_nodes:
             case += f", {node}"
         cells = ["", "", ""]
-        if x != last:
-            _, _, pull_request, directory = commits[commit]
-            cells = [str(numbers.get(x, "")),
+        if (x, directory) != last:
+            _, _, pull_request = commits[commit]
+            # the number once per commit, the commit once per run of it
+            cells = [str(numbers.get(x, "")) if x != last[0] else "",
                 f"[{commit[:12]}](../{directory}/README.md)" if directory
                     else commit[:12],
                 f"[#{pull_request}]({pull_request_url.format(pull_request)})"
                     if pull_request else ""]
-            last = x
+            last = (x, directory)
         lines.append(f"| {' | '.join(cells)} | {case} | {change:+.0%} |")
     return '\n'.join(lines) + '\n'
 
@@ -241,6 +246,8 @@ def main():
         parser.error('--window must be at least 1')
     if args.labels < 0:
         parser.error('--labels must not be negative')
+    if not math.isfinite(args.threshold) or args.threshold < 0:
+        parser.error('--threshold must be a finite number of at least 0')
 
     benchmarks, commits = read_timeline(args.timeline)
     os.makedirs(args.output_dir, exist_ok=True)
