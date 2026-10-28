@@ -17,7 +17,11 @@ set -eu
 base="${PERFTEST_BACKFILL_DIR:?the work directory}"
 runs=${base}/upload/data/runs.tsv
 hpx="$(cd "$(dirname "$0")/../../.." && pwd)"
-since="${1:-$(tail -1 "${runs}" | cut -f2)}"
+since="${1:-$(tail -1 "${runs}" 2> /dev/null | cut -f2)}"
+if [[ -z "${since}" || "${since}" == commit ]]; then
+    echo "no <since> commit given and no run in ${runs}" >&2
+    exit 1
+fi
 master="${2:-origin/master}"
 git -C "${hpx}" log --first-parent --reverse --format=%H "${since}..${master}" |
     while read -r commit; do

@@ -166,6 +166,10 @@ while read -r commit; do
         log "[${n}/${total}] ${short}: added, $(git -C "${base}/upload/data" log -1 --format='%h %s')"
     else
         log "[${n}/${total}] ${short}: adding failed, see ${run_dir}/upload.log"
+        # upload_history.sh adds the run to runs.tsv before it commits: drop
+        # what it left, or the next start would skip this commit
+        git -C "${base}/upload/data" reset --quiet --hard HEAD
+        git -C "${base}/upload/data" clean --quiet -fd
     fi
 done < "${base}/commits.txt"
 log "done"
