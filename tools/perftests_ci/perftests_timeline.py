@@ -237,6 +237,10 @@ def main():
     parser.add_argument('timeline')
     parser.add_argument('output_dir')
     args = parser.parse_args()
+    if args.window < 1:
+        parser.error('--window must be at least 1')
+    if args.labels < 0:
+        parser.error('--labels must not be negative')
 
     benchmarks, commits = read_timeline(args.timeline)
     os.makedirs(args.output_dir, exist_ok=True)
