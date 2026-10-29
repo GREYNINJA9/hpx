@@ -406,7 +406,10 @@ int hpx_main()
 
 int main(int argc, char* argv[])
 {
+    // The numbers of tasks the executor paths create depend on the number of
+    // workers, so the test runs on one.
     hpx::local::init_params init_args;
+    init_args.cfg = {"hpx.os_threads=1"};
     init_args.rp_callback = [](auto& rp,
                                 hpx::program_options::variables_map const&) {
         rp.create_thread_pool("default",
