@@ -641,7 +641,11 @@ hierarchical spawning it reaches the tasks running parts of the loop.
 A size given to an executor, a launch policy or a scheduler through their
 ``thread_schedule_hint`` has no effect: the hint of a thread created for a
 function always gets that function's size, which is ``task_size::unknown`` if
-the function has none.
+the function has none. The exceptions are
+``hpx::execution::experimental::scheduler_executor`` and
+``hpx::execution::experimental::explicit_scheduler_executor``: they create
+their threads through a scheduler before they see the function, so these
+threads have ``task_size::unknown`` even if the function has a size.
 
 Wrappers forward the size of the function they wrap. The ones |hpx| provides
 (``hpx::bind``, ``hpx::bind_front``, ``hpx::bind_back``,
