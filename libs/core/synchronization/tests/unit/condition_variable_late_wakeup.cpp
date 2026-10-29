@@ -76,12 +76,13 @@ void test_round(bool notify_all)
     // notified instead of suspending. Spinning yields with a boosted priority,
     // which doesn't let other work on this worker thread run (such as the
     // notifier), so yield normally now and then.
-    for (std::size_t k = 1; !ready; ++k)
+    std::size_t k = 0;
+    while (!ready)
     {
         cv.wait_until(
             l, std::chrono::steady_clock::now() + std::chrono::microseconds(5));
 
-        if (k % 16 == 0)
+        if (++k % 16 == 0)
         {
             hpx::unlock_guard<std::unique_lock<mutex_type>> ul(l);
             hpx::this_thread::yield();
