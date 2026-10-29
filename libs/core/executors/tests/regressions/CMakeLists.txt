@@ -11,15 +11,23 @@ set(tests
     fork_from_other_context
     fork_join_with_result
     future_then_async_executor
+    hierarchical_spawning_7887
     parallel_executor_1781
     pu_count_6184
     wrapping_executor
 )
 
+# parts must be larger than the hierarchical threshold (7) for the tasks that
+# capture the launch policy to be posted: the 16 elements of the test give parts
+# of 8 on 2 workers, but only parts of 4 on the default 4 workers
+set(hierarchical_spawning_7887_PARAMETERS THREADS_PER_LOCALITY 2)
+
 foreach(test ${tests})
   set(sources ${test}.cpp)
 
-  set(${test}_PARAMETERS THREADS_PER_LOCALITY 4)
+  if(NOT DEFINED ${test}_PARAMETERS)
+    set(${test}_PARAMETERS THREADS_PER_LOCALITY 4)
+  endif()
 
   source_group("Source Files" FILES ${sources})
 
@@ -34,20 +42,6 @@ foreach(test ${tests})
 
   add_hpx_regression_test("modules.executors" ${test} ${${test}_PARAMETERS})
 endforeach()
-
-# needs 2 workers so that the parts of a function without a result are posted as
-# tasks too, with one worker they run inline
-add_hpx_executable(
-  hierarchical_spawning_7887_test INTERNAL_FLAGS
-  SOURCES hierarchical_spawning_7887.cpp
-  EXCLUDE_FROM_ALL
-  HPX_PREFIX ${HPX_BUILD_PREFIX}
-  FOLDER "Tests/Regressions/Modules/Core/Executors"
-)
-
-add_hpx_regression_test(
-  "modules.executors" hierarchical_spawning_7887 THREADS_PER_LOCALITY 2
-)
 
 if(HPX_WITH_COMPILE_ONLY_TESTS)
   set(compile_tests)
