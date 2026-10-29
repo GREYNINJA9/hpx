@@ -13,6 +13,7 @@
 #include <hpx/modules/execution_base.hpp>
 #include <hpx/modules/synchronization.hpp>
 #include <hpx/modules/testing.hpp>
+#include <hpx/modules/thread_support.hpp>
 #include <hpx/modules/threading_base.hpp>
 #include <hpx/thread.hpp>
 
@@ -72,11 +73,19 @@ void test_round(bool notify_all)
     });
 
     // short timeouts keep the waiter spinning and checking whether it was
-    // notified instead of suspending
-    while (!ready)
+    // notified instead of suspending. Spinning yields with a boosted priority,
+    // which doesn't let other work on this worker thread run (such as the
+    // notifier), so yield normally now and then.
+    for (std::size_t k = 1; !ready; ++k)
     {
         cv.wait_until(
             l, std::chrono::steady_clock::now() + std::chrono::microseconds(5));
+
+        if (k % 16 == 0)
+        {
+            hpx::unlock_guard<std::unique_lock<mutex_type>> ul(l);
+            hpx::this_thread::yield();
+        }
     }
     l.unlock();
 
