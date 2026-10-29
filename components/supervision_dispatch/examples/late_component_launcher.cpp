@@ -97,6 +97,10 @@ namespace {
     // dropped instead of requeued (see the catch block below).
     constexpr int max_task_retries = 3;
 
+    // Number of times spawn_worker() launches a worker that exits during
+    // startup (an aborting worker can) before giving up.
+    constexpr int max_spawn_attempts = 3;
+
     // See the shutdown-signal convention paragraph in the file comment above.
     constexpr char const* shutdown_sentinel_message =
         "__worker_slot_shutdown__";
@@ -312,7 +316,7 @@ namespace {
     worker_slot spawn_worker(
         hpx::supervision::registry const& handle, worker_variant const variant)
     {
-        for (int attempt = 0; attempt != max_task_retries; ++attempt)
+        for (int attempt = 0; attempt != max_spawn_attempts; ++attempt)
         {
             if (auto slot = try_spawn_worker(handle, variant))
             {
@@ -321,7 +325,7 @@ namespace {
         }
 
         HPX_THROW_EXCEPTION(hpx::error::invalid_status, "spawn_worker",
-            "the spawned worker kept exiting before it joined");
+            "the spawned worker kept exiting during startup");
     }
 
     // ========================================================================
