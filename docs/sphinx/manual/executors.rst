@@ -602,6 +602,18 @@ return a function that carries one of the sizes of
 ``hpx::threads::task_size``. ``hpx::traits::get_task_size_v<F>`` reads it,
 and is ``task_size::unknown`` for a function without a size.
 
+.. note::
+
+   As a rule of thumb, a small task runs for about a microsecond or less, a
+   medium task for tens to hundreds of microseconds, and a large task for a
+   millisecond or more. The sizes stand for these run times so that the
+   scheduler can make use of them: a size that only ordered tasks relative to
+   each other could not be compared with anything the scheduler knows, while
+   a known run time can be compared with its own costs, for instance the cost
+   of stealing a task (on the order of a microsecond) or of waking a worker.
+   This allows decisions like not stealing small tasks, or waking a worker
+   only for a large task or for a backlog of smaller ones.
+
 .. code-block:: c++
 
    // a long running task
