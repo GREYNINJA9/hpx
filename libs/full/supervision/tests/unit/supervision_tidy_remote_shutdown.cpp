@@ -20,13 +20,14 @@
 #include <memory>
 #include <vector>
 
-// tidy() runs from pre-shutdown and notifies every activity observer of each
-// target it removes. An observer registered on another locality has its agent
-// here (create_activity_agent() uses local_new). Without a tracked target,
-// tidy() does not notify anyone, so publish a target on that locality and
-// leave the observer registered. Returning from hpx_main() is the check: a
-// hang in the remote wait becomes a test timeout. The count is shared because
-// pre-shutdown can invoke the callback after this function has returned.
+// Smoke test: shut down with an activity observer registered on another
+// locality and a tracked target there, so tidy() has a remote agent to notify
+// during shutdown. tidy() runs from pre-shutdown and notifies every activity
+// observer of each target it removes. The observer's agent lives here
+// (create_activity_agent() uses local_new). Without a tracked target, tidy()
+// does not notify anyone, so publish a target on that locality and leave the
+// observer registered. The count is shared because pre-shutdown can invoke
+// the callback after this function has returned.
 void test_shutdown_with_remote_activity_observer()
 {
     std::vector<hpx::id_type> const localities = hpx::find_all_localities();
