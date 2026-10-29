@@ -8,8 +8,10 @@
 
 #include <hpx/config.hpp>
 
+#include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 
 namespace hpx::threads {
 
@@ -17,65 +19,78 @@ namespace hpx::threads {
     /// \enum task_size
     ///
     /// The expected run time of a task, a hint the scheduler may use. A task
-    /// with an unknown size is scheduled as it would be without the hint.
+    /// with an unknown size is scheduled as it would be without the hint. The
+    /// sizes are ordered by run time, see task_size_duration.
     HPX_CXX_CORE_EXPORT enum class task_size : std::uint8_t {
         unknown = 0,
-        small_ = 1,    ///< the underscore is to work around 'small' being
+        nano = 1,      ///< about a nanosecond, mostly for loop bodies
+        small_ = 2,    ///< the underscore is to work around 'small' being
                        ///  defined to char on Windows
-        medium = 2,
-        large = 3
+        medium = 3,
+        large = 4
     };
 
-    /// The number of small tasks the run time of a task of each size stands
-    /// for. Each size stands for a hundred times the run time of the one below
-    /// it: small up to about 100 ns, medium about 10 us, large about 1 ms or
-    /// more.
-    HPX_CXX_CORE_EXPORT inline constexpr std::size_t
-        small_tasks_per_small_task = 1;
-    HPX_CXX_CORE_EXPORT inline constexpr std::size_t
-        small_tasks_per_medium_task = 100;
-    HPX_CXX_CORE_EXPORT inline constexpr std::size_t
-        small_tasks_per_large_task = 10000;
+    /// The run time a task of the given \p size stands for. Each size stands
+    /// for a hundred times the run time of the one below it: nano about 1 ns,
+    /// small up to about 100 ns, medium about 10 us, large about 1 ms or more.
+    /// An unknown size gives a duration of zero. Callers should rely on
+    /// std::chrono arithmetic only, not on the unit or the count of the
+    /// returned duration, which may change once tasks can carry real run
+    /// times.
+    HPX_CXX_CORE_EXPORT [[nodiscard]] constexpr std::chrono::nanoseconds
+    task_size_duration(task_size const size) noexcept
+    {
+        using namespace std::chrono_literals;
+        switch (size)
+        {
+        case task_size::nano:
+            return 1ns;
+        case task_size::small_:
+            return 100ns;
+        case task_size::medium:
+            return 10us;
+        case task_size::large:
+            return 1ms;
+        default:
+            return 0ns;
+        }
+    }
 
     /// The size of a task that calls a function of the given \p size \p calls
-    /// times, for instance a hundred small calls make a medium task and a
-    /// hundred medium calls a large one. The size of a task calling a function
-    /// of unknown size is unknown.
+    /// times, for instance a hundred nano calls make a small task, a hundred
+    /// small calls a medium one and a hundred medium calls a large one. The
+    /// size of a task calling a function of unknown size is unknown.
     HPX_CXX_CORE_EXPORT [[nodiscard]] constexpr task_size bulk_task_size(
         task_size const size, std::size_t const calls) noexcept
     {
-        std::size_t small_tasks_per_call = 0;
-        switch (size)
-        {
-        case task_size::small_:
-            small_tasks_per_call = small_tasks_per_small_task;
-            break;
-        case task_size::medium:
-            small_tasks_per_call = small_tasks_per_medium_task;
-            break;
-        case task_size::large:
+        if (size == task_size::large)
             return task_size::large;
-        default:
+
+        auto const per_call = task_size_duration(size);
+        if (per_call == per_call.zero())
             return task_size::unknown;
+
+        // the run time of all calls, limited to avoid overflow
+        auto const limit = task_size_duration(task_size::large);
+        auto const max_calls = limit / per_call;
+        auto const total = calls > static_cast<std::size_t>(max_calls) ?
+            limit :
+            per_call * static_cast<decltype(max_calls)>(calls);
+
+        for (task_size const s :
+            {task_size::large, task_size::medium, task_size::small_})
+        {
+            if (total >= task_size_duration(s))
+                return s;
         }
-
-        // the run time of all calls in small tasks, limited to avoid overflow
-        std::size_t const small_tasks =
-            calls > small_tasks_per_large_task / small_tasks_per_call ?
-            small_tasks_per_large_task :
-            calls * small_tasks_per_call;
-
-        if (small_tasks >= small_tasks_per_large_task)
-            return task_size::large;
-        if (small_tasks >= small_tasks_per_medium_task)
-            return task_size::medium;
-        return task_size::small_;
+        return task_size::nano;
     }
 }    // namespace hpx::threads
 
 namespace hpx {
 
     HPX_CXX_CORE_EXPORT using threads::task_size;
+    HPX_CXX_CORE_EXPORT using threads::task_size_duration;
     HPX_CXX_CORE_EXPORT using threads::bulk_task_size;
 }    // namespace hpx
 

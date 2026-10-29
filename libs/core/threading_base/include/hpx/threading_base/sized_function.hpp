@@ -51,6 +51,17 @@ namespace hpx::threads {
         return {HPX_FORWARD(F, f)};
     }
 
+    /// \brief Returns a function that is expected to run for about a
+    ///        nanosecond, for instance a loop body comparing or adding
+    ///        builtin types.
+    ///
+    /// \param f Function to wrap
+    HPX_CXX_CORE_EXPORT template <typename F>
+    constexpr sized_function<std::decay_t<F>, task_size::nano> nano_task(F&& f)
+    {
+        return {HPX_FORWARD(F, f)};
+    }
+
     /// \brief Returns a function whose task is expected to run briefly.
     ///
     /// \param f Function to wrap
@@ -86,6 +97,7 @@ namespace hpx {
 
     HPX_CXX_CORE_EXPORT using threads::large_task;
     HPX_CXX_CORE_EXPORT using threads::medium_task;
+    HPX_CXX_CORE_EXPORT using threads::nano_task;
     HPX_CXX_CORE_EXPORT using threads::small_task;
     HPX_CXX_CORE_EXPORT using threads::with_task_size;
 }    // namespace hpx

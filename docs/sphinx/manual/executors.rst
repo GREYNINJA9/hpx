@@ -596,7 +596,7 @@ Task sizes
 
 A task can tell the scheduler how long it is expected to run. The size is a
 property of the function a task runs, so it is attached to the function:
-``hpx::with_task_size<Size>(f)`` and its shorthands
+``hpx::with_task_size<Size>(f)`` and its shorthands ``hpx::nano_task(f)``,
 ``hpx::small_task(f)``, ``hpx::medium_task(f)`` and ``hpx::large_task(f)``
 return a function that carries one of the sizes of
 ``hpx::task_size``. ``hpx::traits::get_task_size_v<F>`` reads it,
@@ -604,12 +604,17 @@ and is ``task_size::unknown`` for a function without a size.
 
 .. note::
 
-   As a rule of thumb, a small task runs for up to about 100 nanoseconds, a
-   medium task for about 10 microseconds, and a large task for about a
-   millisecond or more: each size stands for a hundred times the run time of
-   the one below it. A task that calls a function many times therefore has a
-   size that follows from the function's size, a hundred small calls make a
-   medium task and a hundred medium calls a large one;
+   As a rule of thumb, a nano task runs for about a nanosecond, a small task
+   for up to about 100 nanoseconds, a medium task for about 10 microseconds,
+   and a large task for about a millisecond or more: each size stands for a
+   hundred times the run time of the one below it, and
+   ``hpx::task_size_duration(size)`` returns it as a ``std::chrono``
+   duration. Nano is mostly meant for loop bodies, for instance comparing or
+   adding builtin types; a task that runs only one of them is never worth a
+   thread of its own. A task that calls
+   a function many times has a size that follows from the function's size, a
+   hundred nano calls make a small task, a hundred small calls a medium one
+   and a hundred medium calls a large one;
    ``hpx::bulk_task_size(size, calls)`` computes it. The sizes stand for these
    run times so that the scheduler can make use of them: a size that only
    ordered tasks relative to each other could not be compared with anything

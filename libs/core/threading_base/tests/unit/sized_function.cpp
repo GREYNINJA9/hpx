@@ -17,6 +17,7 @@
 #include <hpx/modules/serialization.hpp>
 #include <hpx/modules/testing.hpp>
 
+#include <chrono>
 #include <cstddef>
 #include <cstring>
 #include <memory>
@@ -27,6 +28,7 @@
 
 using hpx::threads::large_task;
 using hpx::threads::medium_task;
+using hpx::threads::nano_task;
 using hpx::threads::small_task;
 using hpx::threads::task_size;
 using hpx::threads::with_task_size;
@@ -126,6 +128,8 @@ void test_trait()
         task_size::medium);
 
     // the shorthands give the same types as with_task_size
+    static_assert(std::is_same_v<decltype(nano_task(lambda)),
+        decltype(with_task_size<task_size::nano>(lambda))>);
     static_assert(std::is_same_v<decltype(small_task(lambda)),
         decltype(with_task_size<task_size::small_>(lambda))>);
     static_assert(std::is_same_v<decltype(medium_task(lambda)),
@@ -155,14 +159,24 @@ void test_trait()
     static_assert(get_task_size_v<decltype(hpx::annotated_function(lambda)),
                       task_size::medium> == task_size::medium);
 
-    // a hundred small calls make a medium task, a hundred medium calls a large
-    // one
+    // each size stands for a hundred times the run time of the one below it,
+    // so a hundred nano calls make a small task, a hundred small calls a
+    // medium one and a hundred medium calls a large one
     using hpx::bulk_task_size;
-    using hpx::threads::small_tasks_per_large_task;
-    using hpx::threads::small_tasks_per_medium_task;
-    static_assert(small_tasks_per_medium_task == 100);
-    static_assert(small_tasks_per_large_task == 100 * 100);
+    using hpx::task_size_duration;
+    using namespace std::chrono_literals;
+    static_assert(task_size_duration(task_size::unknown) == 0ns);
+    static_assert(task_size_duration(task_size::nano) == 1ns);
+    static_assert(task_size_duration(task_size::small_) == 100ns);
+    static_assert(task_size_duration(task_size::medium) == 10us);
+    static_assert(task_size_duration(task_size::large) == 1ms);
 
+    static_assert(bulk_task_size(task_size::nano, 1) == task_size::nano);
+    static_assert(bulk_task_size(task_size::nano, 99) == task_size::nano);
+    static_assert(bulk_task_size(task_size::nano, 100) == task_size::small_);
+    static_assert(bulk_task_size(task_size::nano, 9999) == task_size::small_);
+    static_assert(bulk_task_size(task_size::nano, 10000) == task_size::medium);
+    static_assert(bulk_task_size(task_size::nano, 1000000) == task_size::large);
     static_assert(bulk_task_size(task_size::small_, 1) == task_size::small_);
     static_assert(bulk_task_size(task_size::small_, 99) == task_size::small_);
     static_assert(bulk_task_size(task_size::small_, 100) == task_size::medium);

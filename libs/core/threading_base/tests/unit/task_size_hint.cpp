@@ -31,7 +31,7 @@ using hpx::threads::task_size;
 
 namespace {
 
-    std::array<std::atomic<int>, 4> created_with{};
+    std::array<std::atomic<int>, 5> created_with{};
 
     using base_scheduler =
         hpx::threads::policies::local_priority_queue_scheduler<>;
@@ -49,20 +49,23 @@ namespace {
         }
     };
 
-    // Runs f and checks how many threads it created with each known size.
-    // Threads created by the runtime itself have no size, so they don't count.
+    // Runs f and checks how many threads it created with each known size (none
+    // with nano). Threads created by the runtime itself have no size, so they
+    // don't count.
     template <typename F>
     void check_sizes(F&& f, int small_, int medium, int large)
     {
         auto const count = [](task_size s) {
             return created_with[static_cast<std::size_t>(s)].load();
         };
+        int const nano_before = count(task_size::nano);
         int const small_before = count(task_size::small_);
         int const medium_before = count(task_size::medium);
         int const large_before = count(task_size::large);
 
         HPX_FORWARD(F, f)();
 
+        HPX_TEST_EQ(count(task_size::nano) - nano_before, 0);
         HPX_TEST_EQ(count(task_size::small_) - small_before, small_);
         HPX_TEST_EQ(count(task_size::medium) - medium_before, medium);
         HPX_TEST_EQ(count(task_size::large) - large_before, large);
@@ -77,15 +80,15 @@ namespace {
         auto const count = [](task_size s) {
             return created_with[static_cast<std::size_t>(s)].load();
         };
-        task_size const known[] = {
-            task_size::small_, task_size::medium, task_size::large};
-        int before[3];
-        for (int i = 0; i != 3; ++i)
+        task_size const known[] = {task_size::nano, task_size::small_,
+            task_size::medium, task_size::large};
+        int before[4];
+        for (int i = 0; i != 4; ++i)
             before[i] = count(known[i]);
 
         HPX_FORWARD(F, f)();
 
-        for (int i = 0; i != 3; ++i)
+        for (int i = 0; i != 4; ++i)
         {
             int const created = count(known[i]) - before[i];
             if (known[i] == size)
