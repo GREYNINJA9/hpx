@@ -40,6 +40,7 @@
 
 #include "late_component_worker.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <cstdlib>
@@ -103,6 +104,31 @@ int hpx_main()
     hpx::util::format_to(std::cerr,
         "{}: late_component_aborting_worker: aborting worker reported: {}\n",
         hpx::find_here(), worker.get_message());
+
+    // Crash only once root has joined this locality. Exiting earlier would
+    // leave root nothing to detect, the crash would simply race root's
+    // discovery.
+    auto const root = std::ranges::find(peers, hpx::find_root_locality(),
+        &hpx::supervision::discovered_peer::locality);
+    if (root != peers.end())
+    {
+        auto const deadline =
+            std::chrono::steady_clock::now() + worker_discovery_timeout;
+        while (std::chrono::steady_clock::now() < deadline)
+        {
+            hpx::error_code ec(hpx::throwmode::lightweight);
+            auto const joined =
+                root->registry_client.snapshot_peers(hpx::launch::sync, ec);
+            if (!ec &&
+                std::ranges::find(joined, hpx::find_here(),
+                    &hpx::supervision::server::peer_snapshot::peer_locality) !=
+                    joined.end())
+            {
+                break;
+            }
+            hpx::this_thread::sleep_for(std::chrono::milliseconds(10));
+        }
+    }
 
     // Simulate a genuine, unrecoverable crash: no hpx::supervision::finalize(),
     // no hpx::disconnect(), no supervision_dispatch call to "fake" a failure.
