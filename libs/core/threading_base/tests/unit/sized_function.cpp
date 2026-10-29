@@ -265,11 +265,12 @@ void test_hint()
     HPX_TEST(all.sharing_mode() ==
         hpx::threads::thread_sharing_hint::do_not_combine_tasks);
 
-    // a function's size goes into the hint, a function without one leaves it
+    // a function's size replaces the one in the hint, and a function without
+    // one leaves the hint without one
     auto lambda = [] {};
     thread_schedule_hint h(task_size::small_);
     hpx::threads::detail::set_task_size<decltype(lambda)>(h);
-    HPX_TEST(h.task_size() == task_size::small_);
+    HPX_TEST(h.task_size() == task_size::unknown);
     hpx::threads::detail::set_task_size<decltype(large_task(lambda))>(h);
     HPX_TEST(h.task_size() == task_size::large);
 }

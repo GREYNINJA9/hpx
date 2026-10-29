@@ -591,6 +591,74 @@ We then use hpx::for_each with a parallel execution policy and attach our custom
 This pattern is especially useful in larger applications with many tasks, as annotations make it much easier
 to trace and debug the execution of parallel algorithms.
 
+Task sizes
+==========
+
+A task can tell the scheduler how long it is expected to run. The size is a
+property of the function a task runs, so it is attached to the function:
+``hpx::threads::with_task_size<Size>(f)`` and its shorthands
+``hpx::small_task(f)``, ``hpx::medium_task(f)`` and ``hpx::large_task(f)``
+return a function that carries one of the sizes of
+``hpx::threads::task_size``. ``hpx::traits::get_task_size_v<F>`` reads it,
+and is ``task_size::unknown`` for a function without a size.
+
+.. code-block:: c++
+
+   // a long running task
+   hpx::future<double> r = hpx::async(hpx::large_task(&simulate), input);
+
+   // a short continuation
+   auto next = r.then(hpx::small_task([](auto&& r) { return r.get() * 2; }));
+
+The size reaches the scheduler with the thread that runs the function:
+``hpx::post``, ``hpx::async``, ``.then()``, dataflow and the ``post``,
+``sync_execute``, ``async_execute`` and ``then_execute`` of
+``hpx::execution::parallel_executor`` (and of the executors built on it)
+store it in the ``thread_schedule_hint`` of the thread they create for the
+function.
+
+Bulk operations generally don't pass sizes on: their tasks run the function
+many times, so the size of one call says little about how long such a task
+runs. The exception is hierarchical spawning
+(``hpx::execution::parallel_executor_spawn_hierarchically``), which creates a
+task for each element: these tasks carry the function's size, and the tasks
+that only spawn them are small. The parallel algorithms pass the size of
+their loop body on to the function they give to the executor, so with
+hierarchical spawning it reaches the tasks running parts of the loop.
+
+A size given to an executor, a launch policy or a scheduler through their
+``thread_schedule_hint`` has no effect: the hint of a thread created for a
+function always gets that function's size, which is ``task_size::unknown`` if
+the function has none.
+
+Wrappers forward the size of the function they wrap. The ones |hpx| provides
+(``hpx::bind``, ``hpx::bind_front``, ``hpx::bind_back``,
+``hpx::util::deferred_call``, ``hpx::annotated_function`` and the wrappers
+the parallel algorithms create around their loop bodies, for instance) do. A
+wrapper of your own can do the same by specializing
+``hpx::traits::get_task_size``, the same way wrappers forward annotations with
+``hpx::traits::get_function_annotation``:
+
+.. code-block:: c++
+
+   template <typename F>
+   struct my_wrapper
+   {
+       F f;
+
+       template <typename... Ts>
+       decltype(auto) operator()(Ts&&... ts)
+       {
+           return f(std::forward<Ts>(ts)...);
+       }
+   };
+
+   template <typename F, hpx::threads::task_size Size>
+   struct hpx::traits::get_task_size<my_wrapper<F>, Size>
+     : hpx::traits::get_task_size<F, Size>
+   {
+   };
+
 .. _parallel_scheduler:
 
 P2079 parallel scheduler
