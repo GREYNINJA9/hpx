@@ -222,6 +222,14 @@ namespace {
         std::vector<std::string> args;
         args.emplace_back("--hpx:threads=1");
 
+        // Root waits for the normal workers to exit before shutting down, so
+        // keep their lifetime short. Only late_component_worker defines this
+        // option.
+        if (variant == worker_variant::normal)
+        {
+            args.emplace_back("--idle-timeout=10000");
+        }
+
         std::vector<hpx::id_type> const localities_before =
             hpx::find_remote_localities();
 
