@@ -280,7 +280,17 @@ namespace {
         // component_worker.cpp's run_root_role().
         auto component = hpx::new_<late_component::test_client>(new_locality);
 
-        hpx::id_type const component_id = component.get_id();
+        // An aborting worker may crash at any time, also while root creates
+        // its component.
+        hpx::error_code ec(hpx::throwmode::lightweight);
+        hpx::id_type const component_id = component.get_id(
+            variant == worker_variant::aborting ? ec : hpx::throws);
+        if (ec)
+        {
+            purge_exited_worker(c, new_locality);
+            return std::nullopt;
+        }
+
         return worker_slot{.peer = *it,
             .component = std::move(component),
             .component_id = component_id,
