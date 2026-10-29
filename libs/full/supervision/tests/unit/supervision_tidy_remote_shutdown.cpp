@@ -20,14 +20,13 @@
 #include <memory>
 #include <vector>
 
-// Smoke test: shut down with an activity observer registered on another
-// locality and a tracked target there, so tidy() has a remote agent to notify
-// during shutdown. tidy() runs from pre-shutdown and notifies every activity
-// observer of each target it removes. The observer's agent lives here
-// (create_activity_agent() uses local_new). Without a tracked target, tidy()
-// does not notify anyone, so publish a target on that locality and leave the
-// observer registered. The count is shared because pre-shutdown can invoke
-// the callback after this function has returned.
+// Smoke test: shut down while an activity observer is registered on another
+// locality that tracks a target. The observer's agent lives here
+// (create_activity_agent() uses local_new), so for tidy() on the other
+// locality it is a remote agent: tidy() removes the target and drops the agent
+// without notifying it (see fire_activity_event()). Without a tracked target,
+// tidy() would have nothing to remove, so publish a target on that locality
+// and leave the observer registered.
 void test_shutdown_with_remote_activity_observer()
 {
     std::vector<hpx::id_type> const localities = hpx::find_all_localities();
@@ -49,7 +48,7 @@ void test_shutdown_with_remote_activity_observer()
     }
 
     // true keeps the observer registered. Returning false would drop it
-    // during the publish below, and shutdown would no longer notify it.
+    // during the publish below, leaving tidy() no agent to drop.
     auto received = std::make_shared<std::atomic<std::size_t>>(0);
     auto const handle =
         hpx::supervision::register_activity_observer(hpx::launch::sync, other,
