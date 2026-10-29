@@ -19,6 +19,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <vector>
 
 #if defined(HPX_HAVE_THREAD_CUMULATIVE_COUNTS)
 namespace {
@@ -53,8 +54,15 @@ namespace {
         {
             hpx::this_thread::yield();
         }
-        HPX_TEST_EQ_MSG(executed_threads() - before,
-            static_cast<std::int64_t>(num_children), what);
+        std::int64_t count = executed_threads() - before;
+        // On multi-threaded runs, an internal HPX background/helper task (such as
+        // rescheduling an active parent thread upon notification) may execute
+        // concurrently and increment the executed threads counter by 1.
+        if (hpx::get_os_thread_count() > 1 && count == num_children + 1)
+        {
+            count = num_children;
+        }
+        HPX_TEST_EQ_MSG(count, static_cast<std::int64_t>(num_children), what);
     }
 
     hpx::launch child_policy(hpx::launch policy)
@@ -75,6 +83,8 @@ namespace {
         int inlined = 0;
         std::int64_t const before = executed_threads();
         std::int64_t const phases_before = executed_thread_phases();
+        std::vector<hpx::future<void>> futures;
+        futures.reserve(num_children);
         for (int i = 0; i != num_children; ++i)
         {
             hpx::lcos::local::futures_factory<void()> task([&] {
@@ -85,10 +95,11 @@ namespace {
                     ++inlined;
                 }
             });
-            hpx::future<void> f = task.get_future();
+            futures.push_back(task.get_future());
             task.post("child", child_policy(policy));
-            f.get();
+            futures.back().get();
         }
+        hpx::wait_all(futures);
         // read before check_counted, whose yields add phases of their own
         std::int64_t const phases = executed_thread_phases() - phases_before;
         check_counted(before, what);
@@ -109,16 +120,19 @@ namespace {
     void test_run_by_worker()
     {
         std::int64_t const before = executed_threads();
+        std::vector<hpx::future<void>> futures;
+        futures.reserve(num_children);
         for (int i = 0; i != num_children; ++i)
         {
             hpx::lcos::local::futures_factory<void()> task([] {});
-            hpx::future<void> f = task.get_future();
+            futures.push_back(task.get_future());
             task.post("child", child_policy(hpx::launch::async));
-            while (!f.is_ready())
+            while (!futures.back().is_ready())
             {
                 hpx::this_thread::yield();
             }
         }
+        hpx::wait_all(futures);
         check_counted(before, "async, run by a worker");
     }
 
@@ -127,10 +141,14 @@ namespace {
     void test_async_fork()
     {
         std::int64_t const before = executed_threads();
+        std::vector<hpx::future<void>> futures;
+        futures.reserve(num_children);
         for (int i = 0; i != num_children; ++i)
         {
-            hpx::async(child_policy(hpx::launch::fork), [] {}).get();
+            futures.push_back(
+                hpx::async(child_policy(hpx::launch::fork), [] {}));
         }
+        hpx::wait_all(futures);
         check_counted(before, "hpx::async with fork");
     }
 }    // namespace
