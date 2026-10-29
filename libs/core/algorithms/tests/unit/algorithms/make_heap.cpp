@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <iostream>
 #include <iterator>
+#include <limits>
 #include <numeric>
 #include <random>
 #include <string>
@@ -62,6 +63,10 @@ void test_make_heap1(IteratorTag)
 // Regression test for issue #7905: make_heap with par produced an invalid
 // heap for sizes 2^k and 2^k + 1 because the level boundary was computed
 // one level too low for first-of-level nodes.
+// The bug is a race: it only manifests when the chunks of the first
+// parallel batch actually run concurrently. A single run per size is not
+// enough to reliably expose it, so each size is repeated many times with
+// fresh random data (200 runs per size failed consistently without the fix).
 template <typename ExPolicy, typename IteratorTag>
 void test_make_heap_pow2(ExPolicy&& policy, IteratorTag)
 {
@@ -81,22 +86,31 @@ void test_make_heap_pow2(ExPolicy&& policy, IteratorTag)
     sizes.push_back(std::size_t(1) << 20);
     sizes.push_back((std::size_t(1) << 20) + 1);
 
+    // Small sizes need many repetitions to make the race reliable; large
+    // sizes are exercised a few times to keep the test fast.
+    constexpr int small_reps = 200;
+    constexpr int large_reps = 5;
+
+    std::uniform_int_distribution<std::size_t> dist(
+        0, (std::numeric_limits<std::size_t>::max)());
+
     for (std::size_t len : sizes)
     {
-        std::vector<std::size_t> c(len);
-        // ascending values are the worst case for a max-heap (every parent
-        // is smaller than its children), forcing real sift-down work;
-        // descending data would already be a valid max-heap and mask the bug
-        std::iota(hpx::util::begin(c), hpx::util::end(c), len);
+        int const reps = len <= 1025 ? small_reps : large_reps;
+        for (int rep = 0; rep != reps; ++rep)
+        {
+            std::vector<std::size_t> c(len);
+            for (auto& x : c)
+                x = dist(gen);
 
-        hpx::make_heap(policy, iterator(hpx::util::begin(c)),
-            iterator(hpx::util::end(c)));
+            hpx::make_heap(policy, iterator(hpx::util::begin(c)),
+                iterator(hpx::util::end(c)));
 
-        HPX_TEST_EQ(
-            std::is_heap(hpx::util::begin(c), hpx::util::end(c)), true);
+            HPX_TEST_EQ(
+                std::is_heap(hpx::util::begin(c), hpx::util::end(c)), true);
+        }
     }
 }
-
 template <typename ExPolicy, typename IteratorTag>
 void test_make_heap_small1(ExPolicy&& policy, IteratorTag)
 {
