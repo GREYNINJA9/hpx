@@ -46,11 +46,6 @@ void test_shutdown_with_remote_activity_observer()
             break;
         }
     }
-    HPX_TEST_NEQ(other, hpx::invalid_id);
-    if (other == hpx::invalid_id)
-    {
-        return;
-    }
 
     // true keeps the observer registered. Returning false would drop it
     // during the publish below, and shutdown would no longer notify it.
