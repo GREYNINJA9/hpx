@@ -87,46 +87,20 @@ namespace hpx::lcos::local::detail {
             }
             else if (e_.resuming_.load(std::memory_order_acquire))
             {
-                // The notifying thread is still resuming this thread (it
-                // doesn't need the lock for that). Yielding, also while
-                // relocking, is an interruption point, which must not throw
-                // from this destructor: retry and request the interruption
-                // again afterwards.
-                bool interrupted = false;
-                auto const retry_if_interrupted = [&](auto&& f) {
-                    while (true)
-                    {
-                        try
-                        {
-                            f();
-                            return;
-                        }
-                        catch (hpx::thread_interrupted const&)
-                        {
-                            interrupted = true;
-                        }
-                    }
-                };
-
-                lock_.unlock();
-
-                retry_if_interrupted([&] {
-                    util::yield_while(
-                        [&] {
-                            return e_.resuming_.load(std::memory_order_relaxed);
-                        },
-                        "condition_variable::reset_queue_entry");
-                });
+                // The notifying thread is still resuming this thread. It
+                // doesn't need the lock for that, and it is done as soon as it
+                // sees left_, which this thread has set already. Spin without
+                // yielding: yielding is an interruption point, which must not
+                // throw from this destructor.
+                [[maybe_unused]] util::ignore_while_checking const il(&lock_);
+                util::yield_while(
+                    [&] {
+                        return e_.resuming_.load(std::memory_order_relaxed);
+                    },
+                    "condition_variable::reset_queue_entry", false);
 
                 // pairs with the notifying thread's release of the flag
                 std::atomic_thread_fence(std::memory_order_acquire);
-
-                retry_if_interrupted([&] { lock_.lock(); });
-
-                if (interrupted)
-                {
-                    threads::get_self_id_data()->request_interruption();
-                }
             }
         }
 
@@ -151,37 +125,38 @@ namespace hpx::lcos::local::detail {
             threads::thread_id_type const& id,
             threads::thread_priority const priority)
         {
-            if (!id)
+            // A waiter that is not an HPX thread has no thread state to look
+            // at; resuming its agent waits for it to suspend.
+            if (id)
             {
-                ctx.resume(priority);    // the waiter is not an HPX thread
-                return;
+                auto const* thrd = threads::get_thread_id_data(id);
+                bool suspended = false;
+                util::yield_while(
+                    [&] {
+                        // The waiter returned from its suspension on its own.
+                        // It may be spinning (waiting for the lock or for
+                        // resuming_ to be cleared, staying active most of the
+                        // time), or be suspended elsewhere already.
+                        if (left.load(std::memory_order_acquire))
+                        {
+                            return false;
+                        }
+
+                        // pending: the waiter runs again without this wakeup
+                        auto const state = thrd->get_state().state();
+                        suspended =
+                            state == threads::thread_schedule_state::suspended;
+                        return state == threads::thread_schedule_state::active;
+                    },
+                    "condition_variable::resume_waiter", false);
+
+                if (!suspended)
+                {
+                    return;
+                }
             }
 
-            auto const* thrd = threads::get_thread_id_data(id);
-            bool suspended = false;
-            util::yield_while(
-                [&] {
-                    // The waiter returned from its suspension on its own. It
-                    // may be spinning (waiting for the lock or for resuming_
-                    // to be cleared, staying active most of the time), or be
-                    // suspended elsewhere already.
-                    if (left.load(std::memory_order_acquire))
-                    {
-                        return false;
-                    }
-
-                    // pending: the waiter runs again without this wakeup
-                    auto const state = thrd->get_state().state();
-                    suspended =
-                        state == threads::thread_schedule_state::suspended;
-                    return state == threads::thread_schedule_state::active;
-                },
-                "condition_variable::resume_waiter");
-
-            if (suspended)
-            {
-                ctx.resume(priority);
-            }
+            ctx.resume(priority);
         }
     }    // namespace
 
@@ -261,6 +236,8 @@ namespace hpx::lcos::local::detail {
             bool const not_empty = !queue_.empty();
             if (!unlock)
             {
+                [[maybe_unused]] util::ignore_while_checking const il(&lock);
+
                 // the waiter can't leave its wait before it got the lock back
                 resume_waiter(front->left_, ctx, id, priority);
                 return not_empty;
@@ -388,8 +365,13 @@ namespace hpx::lcos::local::detail {
         {
             // suspend this thread
             unlock_guard<std::unique_lock<mutex_type>> ul(lock);
+
+            // also if suspending throws (interruption, abort), before the
+            // lock is taken again
+            auto set_left = hpx::experimental::scope_exit(
+                [&f] { f.left_.store(true, std::memory_order_release); });
+
             this_ctx.suspend(description);
-            f.left_.store(true, std::memory_order_release);
         }
 
         // abort_all() only resumes this thread, report the abort now that the
@@ -437,6 +419,12 @@ namespace hpx::lcos::local::detail {
         {
             // suspend this thread
             unlock_guard<std::unique_lock<mutex_type>> ul(lock);
+
+            // also if sleeping throws (interruption, abort, the condition),
+            // before the lock is taken again
+            auto set_left = hpx::experimental::scope_exit(
+                [&f] { f.left_.store(true, std::memory_order_release); });
+
             result = this_ctx.sleep_until(
                 abs_time.value(),
                 [&, pred = HPX_MOVE(wait_cond)]() {
@@ -445,7 +433,6 @@ namespace hpx::lcos::local::detail {
                     return pred();
                 },
                 description);
-            f.left_.store(true, std::memory_order_release);
         }
 
         // abort_all() only resumes this thread, report the abort now that the

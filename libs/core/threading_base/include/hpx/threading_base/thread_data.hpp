@@ -565,16 +565,6 @@ namespace hpx::threads {
             }
         }
 
-        // Request an interruption even if interruption is disabled for this
-        // thread, for an interruption that was caught and could not be
-        // reported. The first interruption point that finds interruption
-        // enabled reports it.
-        void request_interruption() noexcept
-        {
-            std::scoped_lock<mutex_type> l(mtx_);
-            state_ |= state::requested_interrupt;
-        }
-
         bool interruption_point(bool throw_on_interrupt = true);
 
         bool add_thread_exit_callback(function<void()> const& f);
