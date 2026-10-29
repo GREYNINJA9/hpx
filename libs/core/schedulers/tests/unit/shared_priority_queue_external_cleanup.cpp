@@ -22,9 +22,8 @@ int hpx_main()
     hpx::threads::thread_id_ref_type id;
 
     hpx::threads::thread_init_data data(
-        hpx::threads::make_thread_function_nullary([&executed]() {
-            executed.store(true, std::memory_order_release);
-        }),
+        hpx::threads::make_thread_function_nullary(
+            [&executed]() { executed.store(true, std::memory_order_release); }),
         "test_task");
 
     hpx::threads::register_thread(data, id);
@@ -39,9 +38,8 @@ int hpx_main()
     }
 
     // Spawn a standard OS thread (std::thread) and drop the reference inside it.
-    std::thread external_thread([id_to_drop = HPX_MOVE(id)]() mutable {
-        id_to_drop.reset();
-    });
+    std::thread external_thread(
+        [id_to_drop = HPX_MOVE(id)]() mutable { id_to_drop.reset(); });
 
     external_thread.join();
 
