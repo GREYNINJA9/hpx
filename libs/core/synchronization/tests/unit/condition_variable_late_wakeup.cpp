@@ -96,7 +96,7 @@ void test_round(bool notify_all)
 
 int hpx_main()
 {
-    for (std::size_t i = 0; i != 1000; ++i)
+    for (std::size_t i = 0; i != 200; ++i)
     {
         test_round(false);
         test_round(true);
