@@ -596,10 +596,10 @@ Task sizes
 
 A task can tell the scheduler how long it is expected to run. The size is a
 property of the function a task runs, so it is attached to the function:
-``hpx::threads::with_task_size<Size>(f)`` and its shorthands
+``hpx::with_task_size<Size>(f)`` and its shorthands
 ``hpx::small_task(f)``, ``hpx::medium_task(f)`` and ``hpx::large_task(f)``
 return a function that carries one of the sizes of
-``hpx::threads::task_size``. ``hpx::traits::get_task_size_v<F>`` reads it,
+``hpx::task_size``. ``hpx::traits::get_task_size_v<F>`` reads it,
 and is ``task_size::unknown`` for a function without a size.
 
 .. note::
@@ -665,7 +665,7 @@ wrapper of your own can do the same by specializing
        }
    };
 
-   template <typename F, hpx::threads::task_size Size>
+   template <typename F, hpx::task_size Size>
    struct hpx::traits::get_task_size<my_wrapper<F>, Size>
      : hpx::traits::get_task_size<F, Size>
    {
