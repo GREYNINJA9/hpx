@@ -421,9 +421,19 @@ namespace {
                             "force_disconnect\n",
                             hpx::find_here(), current.worker_slot_index);
 
+                        // An aborting worker's locality is purged only once
+                        // its process is gone.
                         hpx::error_code ec(hpx::throwmode::lightweight);
-                        int const disconnect_result =
-                            hpx::force_disconnect(fenced_locality, ec);
+                        int disconnect_result = 0;
+                        if (variant == worker_variant::aborting)
+                        {
+                            purge_exited_worker(fenced_child, fenced_locality);
+                        }
+                        else
+                        {
+                            disconnect_result =
+                                hpx::force_disconnect(fenced_locality, ec);
+                        }
 
                         if (disconnect_result != 0 || ec)
                         {
