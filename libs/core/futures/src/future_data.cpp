@@ -379,10 +379,7 @@ namespace hpx::lcos::detail {
 
             std::unique_lock l(mtx_);
             s = state_.load(std::memory_order_relaxed);
-
-            // Only set_value() and set_exception() notify, after the state
-            // was set. Wait again after any other wakeup.
-            while (s == empty)
+            if (s == empty)
             {
                 cond_.wait(l, "future_data_base::wait", ec);
                 if (ec)
@@ -390,7 +387,7 @@ namespace hpx::lcos::detail {
                     return s;
                 }
 
-                // reload the state
+                // reload the state, it's not empty anymore
                 //
                 // Use memory_order_acquire (not relaxed) to establish a
                 // happens-before relationship with the memory_order_release
