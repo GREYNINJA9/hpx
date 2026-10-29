@@ -43,8 +43,8 @@
 //
 // Explicit non-goals, deferred to Task 4c:
 //   - No full-queue-drain detection across *all* worker slots.
-//   - No error handling for spawn_worker() itself throwing (e.g. process launch
-//     failure) -- this is assumed to succeed throughout.
+//   - No error handling for a failed process launch in spawn_worker(); only an
+//     aborting worker that exits during startup is purged and retried.
 //
 // Shutdown-signal convention introduced here: there is no supervision_dispatch
 // primitive that lets one peer forcibly latch a terminal event for another
@@ -145,8 +145,9 @@ namespace {
         worker_variant variant;
 
         // Keeps the spawned child process handle alive for the lifetime of this
-        // slot; never waited on explicitly - the worker exits on its own
-        // (idle-timeout or root-fencing), not because root asks it to.
+        // slot. The worker exits on its own (idle-timeout or root-fencing), not
+        // because root asks it to; root waits for that exit before shutting
+        // down.
         hpx::components::process::child child;
     };
 
@@ -194,9 +195,11 @@ namespace {
     // component instance, and join epoch - never a reused one, which is
     // exactly what a post-fencing respawn (see run_launcher() below) needs.
     //
-    // Assumes success throughout (see the "Explicit non-goals" paragraph in the
-    // file comment above): a process launch failure here is not handled and
-    // simply propagates out of this function.
+    // Returns std::nullopt if an aborting worker exits before it joined or
+    // while its component is created; spawn_worker() then tries again. A
+    // process launch failure is not handled (see the "Explicit non-goals"
+    // paragraph in the file comment above) and simply propagates out of this
+    // function.
     std::optional<worker_slot> try_spawn_worker(
         hpx::supervision::registry const& handle, worker_variant const variant)
     {
