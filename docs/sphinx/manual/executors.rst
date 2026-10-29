@@ -604,15 +604,20 @@ and is ``task_size::unknown`` for a function without a size.
 
 .. note::
 
-   As a rule of thumb, a small task runs for about a microsecond or less, a
-   medium task for tens to hundreds of microseconds, and a large task for a
-   millisecond or more. The sizes stand for these run times so that the
-   scheduler can make use of them: a size that only ordered tasks relative to
-   each other could not be compared with anything the scheduler knows, while
-   a known run time can be compared with its own costs, for instance the cost
-   of stealing a task (on the order of a microsecond) or of waking a worker.
-   This allows decisions like not stealing small tasks, or waking a worker
-   only for a large task or for a backlog of smaller ones.
+   As a rule of thumb, a small task runs for up to about 100 nanoseconds, a
+   medium task for about 10 microseconds, and a large task for about a
+   millisecond or more: each size stands for a hundred times the run time of
+   the one below it. A task that calls a function many times therefore has a
+   size that follows from the function's size, a hundred small calls make a
+   medium task and a hundred medium calls a large one;
+   ``hpx::bulk_task_size(size, calls)`` computes it. The sizes stand for these
+   run times so that the scheduler can make use of them: a size that only
+   ordered tasks relative to each other could not be compared with anything
+   the scheduler knows, while a known run time can be compared with its own
+   costs, for instance the cost of stealing a task (on the order of a
+   microsecond) or of waking a worker. This allows decisions like not
+   stealing small tasks, or waking a worker only for a large task or for a
+   backlog of smaller ones.
 
 .. code-block:: c++
 

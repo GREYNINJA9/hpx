@@ -17,6 +17,7 @@
 #include <hpx/modules/serialization.hpp>
 #include <hpx/modules/testing.hpp>
 
+#include <cstddef>
 #include <cstring>
 #include <memory>
 #include <string>
@@ -153,6 +154,28 @@ void test_trait()
                       task_size::medium> == task_size::medium);
     static_assert(get_task_size_v<decltype(hpx::annotated_function(lambda)),
                       task_size::medium> == task_size::medium);
+
+    // a hundred small calls make a medium task, a hundred medium calls a large
+    // one
+    using hpx::bulk_task_size;
+    using hpx::threads::small_tasks_per_large_task;
+    using hpx::threads::small_tasks_per_medium_task;
+    static_assert(small_tasks_per_medium_task == 100);
+    static_assert(small_tasks_per_large_task == 100 * 100);
+
+    static_assert(bulk_task_size(task_size::small_, 1) == task_size::small_);
+    static_assert(bulk_task_size(task_size::small_, 99) == task_size::small_);
+    static_assert(bulk_task_size(task_size::small_, 100) == task_size::medium);
+    static_assert(bulk_task_size(task_size::small_, 9999) == task_size::medium);
+    static_assert(bulk_task_size(task_size::small_, 10000) == task_size::large);
+    static_assert(bulk_task_size(task_size::medium, 1) == task_size::medium);
+    static_assert(bulk_task_size(task_size::medium, 99) == task_size::medium);
+    static_assert(bulk_task_size(task_size::medium, 100) == task_size::large);
+    static_assert(
+        bulk_task_size(task_size::medium, std::size_t(-1)) == task_size::large);
+    static_assert(bulk_task_size(task_size::large, 1) == task_size::large);
+    static_assert(
+        bulk_task_size(task_size::unknown, 1000) == task_size::unknown);
 
     // the binders see through to the function they call
     using hpx::placeholders::_1;

@@ -8,6 +8,7 @@
 
 #include <hpx/config.hpp>
 
+#include <cstddef>
 #include <cstdint>
 
 namespace hpx::threads {
@@ -24,11 +25,58 @@ namespace hpx::threads {
         medium = 2,
         large = 3
     };
+
+    /// The number of small tasks the run time of a task of each size stands
+    /// for. Each size stands for a hundred times the run time of the one below
+    /// it: small up to about 100 ns, medium about 10 us, large about 1 ms or
+    /// more.
+    HPX_CXX_CORE_EXPORT inline constexpr std::size_t
+        small_tasks_per_small_task = 1;
+    HPX_CXX_CORE_EXPORT inline constexpr std::size_t
+        small_tasks_per_medium_task = 100;
+    HPX_CXX_CORE_EXPORT inline constexpr std::size_t
+        small_tasks_per_large_task = 10000;
+
+    /// The size of a task that calls a function of the given \p size \p calls
+    /// times, for instance a hundred small calls make a medium task and a
+    /// hundred medium calls a large one. The size of a task calling a function
+    /// of unknown size is unknown.
+    HPX_CXX_CORE_EXPORT [[nodiscard]] constexpr task_size bulk_task_size(
+        task_size const size, std::size_t const calls) noexcept
+    {
+        std::size_t small_tasks_per_call = 0;
+        switch (size)
+        {
+        case task_size::small_:
+            small_tasks_per_call = small_tasks_per_small_task;
+            break;
+        case task_size::medium:
+            small_tasks_per_call = small_tasks_per_medium_task;
+            break;
+        case task_size::large:
+            return task_size::large;
+        default:
+            return task_size::unknown;
+        }
+
+        // the run time of all calls in small tasks, limited to avoid overflow
+        std::size_t const small_tasks =
+            calls > small_tasks_per_large_task / small_tasks_per_call ?
+            small_tasks_per_large_task :
+            calls * small_tasks_per_call;
+
+        if (small_tasks >= small_tasks_per_large_task)
+            return task_size::large;
+        if (small_tasks >= small_tasks_per_medium_task)
+            return task_size::medium;
+        return task_size::small_;
+    }
 }    // namespace hpx::threads
 
 namespace hpx {
 
     HPX_CXX_CORE_EXPORT using threads::task_size;
+    HPX_CXX_CORE_EXPORT using threads::bulk_task_size;
 }    // namespace hpx
 
 namespace hpx::traits {
