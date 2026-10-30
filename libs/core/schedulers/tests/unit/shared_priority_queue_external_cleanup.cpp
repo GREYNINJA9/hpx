@@ -11,8 +11,7 @@
 #include <hpx/thread.hpp>
 
 #include <atomic>
-#include <cstddef>
-#include <string>
+#include <string_view>
 #include <thread>
 #include <vector>
 
@@ -29,13 +28,16 @@ int hpx_main()
     hpx::threads::register_thread(data, id);
     HPX_TEST(id);
 
-    // Wait for the task to finish executing.
+    // Wait for the task to finish executing and reach terminated state.
     while (!executed.load(std::memory_order_acquire) ||
         hpx::threads::get_thread_state(id.noref()).state() !=
             hpx::threads::thread_schedule_state::terminated)
     {
         hpx::this_thread::yield();
     }
+
+    HPX_TEST_EQ(hpx::threads::get_thread_state(id.noref()).state(),
+        hpx::threads::thread_schedule_state::terminated);
 
     // Spawn a standard OS thread (std::thread) and drop the reference inside it.
     std::thread external_thread(
