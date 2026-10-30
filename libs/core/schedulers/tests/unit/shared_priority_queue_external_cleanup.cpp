@@ -28,7 +28,11 @@ int hpx_main()
     hpx::threads::register_thread(data, id);
     HPX_TEST(id);
 
-    // Wait for the task to finish executing and reach terminated state.
+    // Wait for the task to finish executing and reach terminated state. The
+    // worker that runs the task stores the terminated state before it releases
+    // its own reference to the task. This test runs on a single worker (see
+    // CMakeLists.txt): hpx_main resumes only after that worker has released
+    // its reference, so the reference dropped below is the last one.
     while (!executed.load(std::memory_order_acquire) ||
         hpx::threads::get_thread_state(id.noref()).state() !=
             hpx::threads::thread_schedule_state::terminated)
