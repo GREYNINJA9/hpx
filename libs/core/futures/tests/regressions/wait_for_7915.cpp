@@ -52,10 +52,9 @@ int main()
             hpx::future_status const status = f.wait_for(milliseconds(1));
             HPX_TEST(status == hpx::future_status::timeout);
         });
-
-        std::this_thread::sleep_for(milliseconds(50));
-        p.set_value(42);
         waiter.join();
+
+        p.set_value(42);
     }
 
     return hpx::util::report_errors();
