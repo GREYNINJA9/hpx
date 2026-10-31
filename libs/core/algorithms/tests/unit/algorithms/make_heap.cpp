@@ -12,7 +12,6 @@
 #include <cstddef>
 #include <iostream>
 #include <iterator>
-#include <limits>
 #include <numeric>
 #include <random>
 #include <string>
@@ -58,6 +57,7 @@ void test_make_heap1(IteratorTag)
 
     HPX_TEST_EQ(std::is_heap(hpx::util::begin(c), hpx::util::end(c)), true);
 }
+
 template <typename ExPolicy, typename IteratorTag>
 void test_make_heap_small1(ExPolicy&& policy, IteratorTag)
 {
